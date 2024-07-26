@@ -1,0 +1,49 @@
+# Downloading Glorys for Northeast US
+# Using Copernicus Marine Toolbox python API
+
+
+# Load the toolbox
+import copernicusmarine
+catalog = copernicusmarine.describe(overwrite_metadata_cache=True)
+
+# Log in using credentials: 
+copernicusmarine.login()
+
+# Check directory
+import os
+os.listdir()
+
+
+# Variables:
+# thetao = potential temperature in C
+# so = Salinity in psu
+# uo = Eastward ocean current velocity
+# vo = Northward ocean current velocity
+
+# Load a year
+import numpy as np
+years = np.arange(1993, 2024)
+months = np.arange(1,13)
+months = [f"{mnth:02}" for mnth in months]
+
+# Loop through them all
+for yr in years:
+    for mnth in months:
+        # Download all the months
+        copernicusmarine.subset(
+        dataset_id = "cmems_mod_glo_phy_my_0.083deg_P1D-m",
+        variables = ["thetao", "so"],
+        minimum_longitude = -75.7,
+        maximum_longitude = -56.9,
+        minimum_latitude = 35.2,
+        maximum_latitude = 46.2,
+        start_datetime = f"{yr}-01-01T00:00:00",
+        end_datetime = f"{yr}-01-31T23:59:59",
+        minimum_depth = 0,
+        maximum_depth = 1500,
+        output_filename = f"CMEMS_Northeast_TempSal_{yr}_{mnth}.nc",
+        output_directory = "GLORYS_data", 
+        force_download = True
+        )
+
+
