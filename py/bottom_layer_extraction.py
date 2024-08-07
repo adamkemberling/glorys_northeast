@@ -3,6 +3,17 @@
 # Use to extract bottom-layer indices (deepest non-NA depth indices)
 
 
+
+####  Libraries  ####
+import xarray as xr
+import os
+import numpy as np
+
+
+# # Move up a directory to access local project files
+# os.chdir("..")
+
+
 # find bottom temp for any netcdf with depth
 def find_deepest_depth_indices(ds, variable_id, y_coord, x_coord, depth_coord, maxDepth = 2000):
 
@@ -47,10 +58,42 @@ def find_deepest_depth_indices(ds, variable_id, y_coord, x_coord, depth_coord, m
     return ind
 
 
-# TODO
+#### TESTING  ####
 # Apply to glorys downloads: 
 # Follow this pattern: https://github.com/adamkemberling/sdm_workflow/blob/main/CMIP6_processing/GetBottomLayer.py
 
+# Test on one file
+# Open a file to explore
+glorys_93 = xr.open_dataset("GLORYS_data/CMEMS_Northeast_TempSal_1993_01.nc")
+glorys_93.variables
 
-# Use xr.open_mfdataset() to load the downloads. 
+# Pull the bottom indices
+glorys_bottom_idx = find_deepest_depth_indices(
+    ds = glorys_93, 
+    variable_id = 'thetao', 
+    x_coord = 'longitude', 
+    y_coord = 'latitude', 
+    depth_coord = 'depth', 
+    maxDepth = 1600)
+
+
+
+# Use that to extract the variables we care about
+
+# use kwargs to pull values for those indices
+kwdepth = {'depth': glorys_bottom_idx}
+var_array = glorys_93['thetao']
+
+
+# Now index the values out
+dsSel = var_array.isel(**kwdepth)
+ds = dsSel.to_dataset()
+ds.thetao.isel(time = 0).plot()
+
+
+
+
+### Test them all:
+# Use xr.open_mfdataset() to load all the downloads. 
+
 # Pull the bottom layer and resave. Add another variable indication the depth used **
