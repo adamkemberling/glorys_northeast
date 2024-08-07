@@ -1,18 +1,21 @@
 # Downloading Glorys for Northeast US
 # Using Copernicus Marine Toolbox python API
 
-
-# Load the toolbox
+# For Constructing Last day of the month
+import datetime
+import calendar
 import copernicusmarine
+import os
+
+
+# Access the catalog
 catalog = copernicusmarine.describe(overwrite_metadata_cache=True)
 
-# Log in using credentials: 
-copernicusmarine.login()
+# # Log in using credentials: 
+# copernicusmarine.login()
 
 # Check directory
-import os
 os.listdir()
-
 
 # Variables:
 # thetao = potential temperature in C
@@ -26,9 +29,17 @@ years = np.arange(1993, 2024)
 months = np.arange(1,13)
 months = [f"{mnth:02}" for mnth in months]
 
+# checking last day code
+# mnth_test = "02"
+# datetime.datetime(2010, int(f"{mnth_test}"), calendar.monthrange(2010, int(f"{mnth_test}"))[1], 23, 59, 59).strftime('%Y-%m-%dT%H:%M:%S')
+
 # Loop through them all
 for yr in years:
     for mnth in months:
+
+        # Make a stupid end datetime that adapts to the days in each month
+        last_day = datetime.datetime(yr, int(f"{mnth}"), calendar.monthrange(yr, int(f"{mnth}"))[1], 23, 59, 59)
+
         # Download all the months
         copernicusmarine.subset(
         dataset_id = "cmems_mod_glo_phy_my_0.083deg_P1D-m",
@@ -37,8 +48,9 @@ for yr in years:
         maximum_longitude = -56.9,
         minimum_latitude = 35.2,
         maximum_latitude = 46.2,
-        start_datetime = f"{yr}-01-01T00:00:00",
-        end_datetime = f"{yr}-01-31T23:59:59",
+        start_datetime = f"{yr}-{mnth}-01T00:00:00",
+        #end_datetime = f"{yr}-{mnth}-31T23:59:59",
+        end_datetime = last_day.strftime('%Y-%m-%dT%H:%M:%S'),
         minimum_depth = 0,
         maximum_depth = 1500,
         output_filename = f"CMEMS_Northeast_TempSal_{yr}_{mnth}.nc",
@@ -46,6 +58,10 @@ for yr in years:
         force_download = True
         )
 
+
+
+
+#############  Downloading from Interim Dataset  #############
 
 # Now Download the remaining dates from the interim dataset
 # Load some years
@@ -56,6 +72,10 @@ months = [f"{mnth:02}" for mnth in months]
 # Loop through them all
 for yr in years:
     for mnth in months:
+
+        # Make a stupid end datetime that adapts to the days in each month
+        last_day = datetime.datetime(yr, int(f"{mnth}"), calendar.monthrange(yr, int(f"{mnth}"))[1], 23, 59, 59)
+
         # Download all the months
         copernicusmarine.subset(
         dataset_id = "cmems_mod_glo_phy_myint_0.083deg_P1D-m",
@@ -64,11 +84,15 @@ for yr in years:
         maximum_longitude = -56.9,
         minimum_latitude = 35.2,
         maximum_latitude = 46.2,
-        start_datetime = f"{yr}-01-01T00:00:00",
-        end_datetime = f"{yr}-01-31T23:59:59",
+        start_datetime = f"{yr}-{mnth}-01T00:00:00",
+        #end_datetime = f"{yr}-{mnth}-31T23:59:59",
+        end_datetime = last_day.strftime('%Y-%m-%dT%H:%M:%S'),
         minimum_depth = 0,
         maximum_depth = 1500,
         output_filename = f"CMEMS_Northeast_TempSal_{yr}_{mnth}.nc",
         output_directory = "GLORYS_data", 
         force_download = True
         )
+
+
+

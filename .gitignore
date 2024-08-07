@@ -10,6 +10,7 @@ __pycache__/
 .DS_Store
 .Rhistory
 GLORYS_data/
+local_data/
 
 # Distribution / packaging
 .Python
@@ -166,3 +167,4 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 .Rproj.user
+
