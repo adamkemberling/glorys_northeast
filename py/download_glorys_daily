@@ -6,6 +6,7 @@ import datetime
 import calendar
 import copernicusmarine
 import os
+import numpy as np
 
 
 # Access the catalog
@@ -24,8 +25,7 @@ os.listdir()
 # vo = Northward ocean current velocity
 
 # Load some years
-import numpy as np
-years = np.arange(1993, 2024)
+years = np.arange(2021, 2022)
 months = np.arange(1,13)
 months = [f"{mnth:02}" for mnth in months]
 
@@ -61,12 +61,16 @@ for yr in years:
 
 
 
+
+
+
+
 #############  Downloading from Interim Dataset  #############
 
 # Now Download the remaining dates from the interim dataset
 # Load some years
-years = np.arange(2022, 2025)
-months = np.arange(1,13)
+years = np.arange(2021, 2022)
+months = np.arange(7,13)
 months = [f"{mnth:02}" for mnth in months]
 
 # Loop through them all

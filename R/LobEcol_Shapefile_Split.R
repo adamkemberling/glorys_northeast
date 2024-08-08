@@ -34,34 +34,3 @@ offshore_areas %>%
   # imap(~print(str_c(poly_paths, "offshore_areas/", .y, ".geojson")))
 
 
-####  Load and Check Regionally Masked Timeseries  ####
-
-
-# Load CSV files of timeseries
-
-# inshore
-inshore_timeseries <- map_dfr(
-  setNames(
-    list.files(here::here("local_data/inshore_timeseries"), full.names = T), 
-    str_remove_all(str_remove_all(list.files(here::here("local_data/inshore_timeseries")), "GLORYs_surfbottemp_"), ".csv")),
-  ~read_csv(.x) %>% select(-`...1`), 
-  .id = "area_id")
-
-# plot
-ggplot(inshore_timeseries) +
-  geom_line(aes(time, surface_temp)) +
-  facet_wrap(~area_id)
-
-
-# offshore
-offshore_timeseries <- map_dfr(
-  setNames(
-    list.files(here::here("local_data/offshore_timeseries"), full.names = T), 
-    str_remove_all(str_remove_all(list.files(here::here("local_data/offshore_timeseries")), "GLORYs_surfbottemp_"), ".csv")),
-  ~read_csv(.x) %>% select(-`...1`), 
-  .id = "area_id")
-
-# Plot
-ggplot(offshore_timeseries) +
-  geom_line(aes(time, bottom_temp)) +
-  facet_wrap(~area_id, nrow = 2)
