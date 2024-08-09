@@ -1,0 +1,676 @@
+---
+title: "GLORYs Lobster Thresholds"
+author: "Adam Kemberling"
+url: "https://github.com/adamkemberling"
+affiliation: "Gulf of Maine Research Institute"
+affiliation_url: "https://www.gmri.org"
+description: | 
+  Tracking Lobster Temperature Exposure Along the NE Shelf
+date: "Updated on: `r Sys.Date()`"
+format: 
+  html:
+    toc: true
+    self-contained: true
+execute: 
+  echo: false
+  warning: false
+  message: false
+  comment: ""
+  fig.align: center
+params: 
+  year: 2024
+  season: "Spring"
+  seas: "spring"
+  save_data: FALSE
+  save_figures: TRUE
+---
+
+## About: GLORYs SST/BT Analyses
+
+This document reviews the temperature characteristics for regions along the Northeast shelf using the GLORYs ocean reanalysis model outputs from 1993-2023. 
+
+Temperature change is presented for 19 zones in the area, and presented with respect to key temperatures for lobster growth and survival.
+
+
+```{r}
+
+# Loading/Separating Lobster-ECOL Spatial Areas
+
+#### Libraries
+library(gmRi)
+library(here)
+library(sf)
+library(tidyverse)
+library(rnaturalearth)
+library(scales)
+library(heatwaveR)
+
+deg_c <- "\u00b0C"
+
+# Paths to files
+poly_paths <- cs_path("mills", "Projects/Lobster ECOL/Spatial_Defs")
+
+
+#### Separate Shapes for Easier Paralell Workflow  ####
+# i'm still bad at python so loops are easier this way
+
+# Load Shapefiles
+inshore_areas <- map(
+  setNames(
+    list.files(str_c(poly_paths, "inshore_areas"), full.names = T),
+    str_remove(list.files(str_c(poly_paths, "inshore_areas")), ".geojson")),
+  function(x){read_sf(x)}
+)
+
+offshore_areas <- map(
+  setNames(
+    list.files(str_c(poly_paths, "offshore_areas"), full.names = T),
+    str_remove(list.files(str_c(poly_paths, "offshore_areas")), ".geojson")),
+  function(x){read_sf(x)}
+)
+
+
+# regional shapefiles
+new_england <- ne_states("united states of america", returnclass = "sf") %>% 
+  filter(postal %in% c("VT", "ME", "RI", "MA", "CT", "NH", "NY", "MD", "VA", "NJ", "DE", "NC", "PA", "WV"))
+
+
+
+####  Load and Check Regionally Masked Timeseries  ####
+
+
+# Levels for area N->S
+area_levels <- c(
+  "511-Eastern_Maine",      
+  "512-Central_Maine",      
+  "513-Western_Maine",     
+  "514-Eastern_Mass",       
+  "521-W_South_Channel",    
+  "526-Nantucket_Shoals",  
+  "537-Off_No_Mans_Land",   
+  "538-Southern_Mass",      
+  "539-Rhode_Island_Shore",
+  "611-Long_Island_Sound",  
+  "612-Cholera_Bank",       
+  "613-Off_Long_Island",   
+  "614-New_Jersey_Shore",   
+  "615-Barnegat_Ridge",     
+  "621-Five_Fathom_Bank",  
+  "625-No_Carolina_Shore",
+  "625-Virginia_Shore",
+  "GOM_GBK",
+  "SNE")
+
+
+# Load CSV files of timeseries
+
+# inshore
+inshore_timeseries <- map_dfr(
+  setNames(
+    list.files(here::here("local_data/inshore_timeseries"), full.names = T), 
+    str_remove_all(str_remove_all(list.files(here::here("local_data/inshore_timeseries")), "GLORYs_surfbottemp_"), ".csv")),
+  ~read_csv(.x, show_col_types = FALSE) %>% select(-`...1`), 
+  .id = "area_id") #%>% mutate(area_id = factor(area_id, levels = area_levels))
+
+
+
+# offshore
+offshore_timeseries <- map_dfr(
+  setNames(
+    list.files(here::here("local_data/offshore_timeseries"), full.names = T), 
+    str_remove_all(str_remove_all(list.files(here::here("local_data/offshore_timeseries")), "GLORYs_surfbottemp_"), ".csv")),
+  ~read_csv(.x, show_col_types = FALSE) %>% select(-`...1`), 
+  .id = "area_id") #%>% mutate(area_id = factor(area_id, levels = area_levels))
+```
+
+
+
+
+```{r}
+#| label: style-sheet
+#| results: asis
+
+# Use GMRI style
+use_gmri_style_rmd()
+
+```
+
+
+
+
+```{r}
+#| label: fonts-config
+#| echo: false
+library(showtext)
+
+# Path to the directory containing the font file (replace with your actual path)
+font_dir <- paste0(system.file("stylesheets", package = "gmRi"), "/GMRI_fonts/Avenir/")
+
+# Register the font
+font_add(
+  family = "Avenir",
+  file.path(font_dir, "LTe50342.ttf"),
+  bold = file.path(font_dir, "LTe50340.ttf"),
+  italic = file.path(font_dir, "LTe50343.ttf"),
+  bolditalic = file.path(font_dir, "LTe50347.ttf"))
+
+# Load the font
+showtext::showtext_auto()
+
+```
+
+
+# Study Area & Focal Regions
+
+
+```{r}
+canada <- ne_states("canada", returnclass = "sf")
+# Map everything
+ggplot() +
+  geom_sf(data = bind_rows(inshore_areas), aes(fill = area_id), alpha = 0.4) +
+  geom_sf(data = bind_rows(offshore_areas), aes(fill = Region), alpha = 0.4) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  theme(legend.position = "right") +
+  scale_fill_gmri() +
+  coord_sf(xlim = c(-78, -64), ylim = c(35.5, 45.5)) +
+  guides(fill = guide_legend(ncol = 3)) +
+  theme_bw() + map_theme(legend.position = "bottom") +
+  labs(fill = "", title = "Lobster ECOL Temperature Study Area")
+```
+
+
+# Absolute Temperature Changes
+
+::: panel-tabset
+
+### Nearshore
+
+```{r}
+ggplot(inshore_timeseries) +
+  geom_line(aes(time, surface_temp, color = "Surface Temperature"), alpha = 0.6, , linewidth = 0.35) +
+  geom_line(aes(time, bottom_temp, color = "Bottom Temperature"), alpha = 0.6, linewidth = 0.35) +
+  facet_wrap(~area_id) +
+  scale_color_gmri() +
+  scale_y_continuous(labels = label_number(suffix = deg_c)) +
+  theme_gmri(legend.position = "bottom") +
+  labs(y = "Temperature", color = "", x = "Date")
+```
+
+
+### Offshore
+
+
+```{r}
+ggplot(offshore_timeseries) +
+  geom_line(aes(time, surface_temp, color = "Surface Temperature"), alpha = 0.6, , linewidth = 0.8) +
+  geom_line(aes(time, bottom_temp, color = "Bottom Temperature"), alpha = 0.6, linewidth = 0.8) +
+  facet_wrap(~area_id) +
+  scale_color_gmri() +
+  scale_y_continuous(labels = label_number(suffix = deg_c)) +
+  theme_gmri(legend.position = "bottom") +
+  labs(y = "Temperature", color = "", x = "Date")
+```
+
+:::
+# Temperature Anomalies
+
+
+```{r}
+# Process anomalies
+
+####  Identify Marine Heatwaves  ####
+# 
+#' @title Pull Marine Heatwave and cold Spell Events from Timeseries
+#' 
+#' @description Pull both heatwave and cold spell events using same threshold and return
+#' as single table. Wrapper function to do heatwaves and coldwaves simultaneously at 90% 
+#' or custom threshold
+#' 
+#' Option to de-trend anomalies at annual scale in accordance with Jacox et al. methodology. Default
+#' is not de-trended and uses a statid climate reference period following the methods of hobday et al.
+#'
+#' @param temperature_timeseries timeseries dataframe with date and sst values
+#' @param clim_ref_period start and end dates to use when calculating the climate reference 
+#' period c("yyyy-mm-dd", "yyyy-mm-dd")
+#' @date_col String indicating the column to use for dates
+#' @temp_col String indicating the column to de-trend
+#' @param threshold percentile cutoff for indicating a heatwave/coldspell event
+#' @param detrend TRUE/FALSE Whether to de-trend anomalies prior to event detection, default is FALSE.
+#'
+#' @return
+#' @export
+#'
+#' @examples
+pull_heatwave_events <- function(temperature_timeseries, 
+                                 clim_ref_period = c("1982-01-01", "2011-12-31"),
+                                 date_col = "time",
+                                 temp_col = "sst",
+                                 threshold = 90,
+                                 detrend = FALSE) {
+  
+  # temperature_timeseries <- gom_sst
+  
+  
+  # Pull the two column dataframe for mhw estimation
+  test_ts <- data.frame(t = as.Date(temperature_timeseries[[date_col]]), 
+                        temp = temperature_timeseries[[temp_col]])
+  
+  
+  # Calculate seasonally varying climatology with threshold w/ smoothing window
+  ts  <- heatwaveR::ts2clm(data = test_ts, 
+                climatologyPeriod = clim_ref_period, 
+                pctile = threshold) %>% 
+    mutate(sst_anom = temp - seas,
+           yr = lubridate::year(t))
+  
+  
+  
+  # Perform linear detrending on anomalies
+  if(detrend){
+    
+    # Detrend day of year temperature trends:
+    ts <- ts %>% 
+      split(.$doy) %>% 
+      map_dfr(detrend_sst, vals = "sst_anom", yr_col = "yr") %>% 
+      mutate(detrend_temp = seas + detrend_vals) %>% 
+      arrange(t)
+    
+  }
+  
+  
+  # Perform Heatwave Detection
+  mhw <- ifelse(detrend,
+                heatwaveR::detect_event(ts, x = t, y = detrend_temp),
+                heatwaveR::detect_event(ts, x = t, y = temp))
+  
+  
+  
+  # Select and rename critical heatwave data
+  mhw_out <- mhw[[1]] %>% 
+    #mutate(sst_anom = temp - seas) %>% 
+    rename(time = t,
+           sst = temp,
+           mhw_thresh = thresh,
+           mhw_threshCriterion = threshCriterion,
+           mhw_durationCriterion = durationCriterion,
+           mhw_event = event,
+           mhw_event_no = event_no)
+  
+  
+  # Repeat for cold spells
+  # 2. Detect cold spells
+  # coldSpells = TRUE flips boolean to < thresh
+  ts <- ts2clm(data = test_ts, 
+               climatologyPeriod = clim_ref_period, 
+               pctile = (100 - threshold)) %>% 
+    mutate(sst_anom = temp - seas,
+           yr = lubridate::year(t))
+  
+  
+  # Perform linear detrending on anomalies
+  if(detrend){
+    
+    # Detrend day of year temperature trends:
+    ts <- ts %>%
+      split(.$doy) %>%
+      map_dfr(detrend_sst, vals = "sst_anom", yr_col = "yr") %>%
+      mutate(detrend_temp = seas + detrend_vals) %>% 
+      arrange(t)
+    
+  }
+  
+  
+  
+  # Perform Cold Spell Detection
+  mcs <- ifelse(detrend,
+                heatwaveR::detect_event(ts, x = t, y = detrend_temp, coldSpells = T),
+                heatwaveR::detect_event(ts, x = t, y = temp, coldSpells = T))
+  
+  
+  
+  # Prepare cold spell data to join
+  # Remove columns that are shared with heatwaves
+  mcs_out <- mcs[[1]] %>%
+    dplyr::select(time = t,
+           mcs_thresh = thresh,
+           mcs_threshCriterion = threshCriterion,
+           mcs_durationCriterion = durationCriterion,
+           mcs_event = event,
+           mcs_event_no = event_no)
+  
+  
+  # join heatwave detection results to coldspell results
+  hot_and_cold <- left_join(mhw_out, mcs_out, by = "time")
+  
+  
+  # 3. Data formatting for plotting, 
+  # adds columns to plot hw and cs seperately
+  events_out <- hot_and_cold %>% 
+    mutate(
+      # Set up status to combine labelling for heatwaves and cold spells:
+      status   = ifelse(mhw_event == TRUE, "Marine Heatwave Event", "Sea Surface Temperature"),
+      status   = ifelse(mcs_event == TRUE, "Marine Cold Spell Event", status),
+      event_type = ifelse(detrend, "Jacox Method", "Hobday Method"),
+      # Corrective measures for where event flagging is off:
+      # status   = ifelse(sst > mhw_thresh, "Marine Heatwave Event", status),
+      # status   = ifelse(sst < mcs_thresh, "Marine Cold Spell Event", status),
+      # Heatwave event temperature values:
+      hwe      = ifelse(mhw_event == TRUE, sst, NA),
+      cse      = ifelse(mcs_event == TRUE, sst, NA),
+      nonevent = ifelse(mhw_event == FALSE & mcs_event == FALSE, sst, NA)) 
+  
+  # Close the gaps between a mhw event and sst (might not need if full line for temp exists)
+  events_out <- events_out %>% 
+    mutate(hwe = ifelse( (is.na(hwe) & is.na(lag(hwe, n = 1))) == FALSE, sst, hwe),
+           cse = ifelse( (is.na(cse) & is.na(lag(cse, n = 1))) == FALSE, sst, cse)) %>% 
+    distinct(time, .keep_all = T)
+  
+  
+  return(events_out)
+}
+
+
+```
+
+
+```{r}
+
+# Surface
+inshore_hw_surf <- inshore_timeseries %>% 
+  split(.$area_id) %>% 
+  purrr::map_dfr(., ~pull_heatwave_events(
+      .x, 
+      clim_ref_period = c("1993-01-01", "2022-12-31"),
+      date_col = "time", 
+      temp_col = "surface_temp", 
+      threshold = 90, 
+      detrend = FALSE),
+    .id = "area_id")
+
+# Bottom
+inshore_hw_bot <- inshore_timeseries %>% 
+  split(.$area_id) %>% 
+  purrr::map_dfr(., ~pull_heatwave_events(
+      .x, 
+      clim_ref_period = c("1993-01-01", "2022-12-31"),
+      date_col = "time", 
+      temp_col = "bottom_temp", 
+      threshold = 90, 
+      detrend = FALSE),
+    .id = "area_id")
+
+# Surface
+offshore_hw_surf <- offshore_timeseries %>% 
+  split(.$area_id) %>% 
+  purrr::map_dfr(., ~pull_heatwave_events(
+      .x, 
+      clim_ref_period = c("1993-01-01", "2022-12-31"),
+      date_col = "time", 
+      temp_col = "surface_temp", 
+      threshold = 90, 
+      detrend = FALSE),
+    .id = "area_id")
+
+# Bottom
+offshore_hw_bot <- offshore_timeseries %>% 
+  split(.$area_id) %>% 
+  purrr::map_dfr(., ~pull_heatwave_events(
+      .x, 
+      clim_ref_period = c("1993-01-01", "2022-12-31"),
+      date_col = "time", 
+      temp_col = "bottom_temp", 
+      threshold = 90, 
+      detrend = FALSE),
+    .id = "area_id")
+
+```
+
+
+::: panel-tabset
+
+### Nearshore
+
+```{r}
+ggplot() +
+  geom_line(
+    data = inshore_hw_surf,
+    aes(time, sst_anom, color = "Surface Temperature Anomaly"), 
+    alpha = 0.6, , linewidth = 0.35) +
+  geom_line(
+    data = inshore_hw_bot,
+    aes(time, sst_anom, color = "Bottom Temperature Anomaly"), 
+    alpha = 0.6, linewidth = 0.35) +
+  facet_wrap(~area_id) +
+  scale_color_gmri() +
+  scale_y_continuous(labels = label_number(suffix = deg_c)) +
+  theme_gmri(legend.position = "bottom") +
+  labs(y = "Temperature", color = "", x = "Date")
+```
+
+
+### Offshore
+
+```{r}
+ggplot() +
+  geom_line(
+    data = offshore_hw_surf,
+    aes(time, sst_anom, color = "Surface Temperature Anomaly"), 
+    alpha = 0.6, , linewidth = 0.8) +
+  geom_line(
+    data = offshore_hw_bot,
+    aes(time, sst_anom, color = "Bottom Temperature Anomaly"), 
+    alpha = 0.6, linewidth = 0.8) +
+  facet_wrap(~area_id) +
+  scale_color_gmri() +
+  scale_y_continuous(labels = label_number(suffix = deg_c)) +
+  theme_gmri(legend.position = "bottom") +
+  labs(y = "Temperature", color = "", x = "Date")
+```
+
+:::
+
+
+# MHW Events
+
+```{r}
+# Process summaries
+inshore_summ <- bind_rows(
+    inshore_hw_surf %>% 
+      group_by(year = lubridate::year(time), area_id) %>% 
+      summarise(
+        var = "Surface Temperature",
+        mhw_days = sum(mhw_event, na.rm = T),
+        over_20 = sum(sst >20, na.rm = T),
+        between_1218 = sum(between(sst, 12,18), na.rm = T)),
+    inshore_hw_bot %>% 
+      group_by(year = lubridate::year(time), area_id) %>% 
+      summarise(
+        var = "Bottom Temperature",
+        mhw_days = sum(mhw_event, na.rm = T),
+        over_20 = sum(sst >20, na.rm = T),
+        between_1218 = sum(between(sst, 12,18), na.rm = T))
+    
+  )
+
+
+# Offshore
+offshore_summ <- bind_rows(
+    offshore_hw_surf %>% 
+      group_by(year = lubridate::year(time), area_id) %>% 
+      summarise(
+        var = "Surface Temperature",
+        mhw_days = sum(mhw_event, na.rm = T),
+        over_20 = sum(sst >20, na.rm = T),
+        between_1218 = sum(between(sst, 12,18), na.rm = T)),
+    offshore_hw_bot %>% 
+      group_by(year = lubridate::year(time), area_id) %>% 
+      summarise(
+        var = "Bottom Temperature",
+        mhw_days = sum(mhw_event, na.rm = T),
+        over_20 = sum(sst >20, na.rm = T),
+        between_1218 = sum(between(sst, 12,18), na.rm = T))
+    
+  )
+  
+    
+  
+```
+
+
+
+::: panel-tabset
+
+### Nearshore
+
+```{r}
+
+
+ggplot() +
+  geom_col(
+    data = inshore_summ,
+      aes(year, mhw_days, fill = var), 
+      alpha = 0.6, position = "dodge") +
+  facet_wrap(~area_id) +
+  scale_fill_gmri() +
+  scale_y_continuous(limits = c(0,365)) +
+  theme_gmri(legend.position = "bottom") +
+  labs(
+    title = "Marine Heatwave Days\n(1993-2022 Climatology)", 
+    y = "Days",
+    fill = "", 
+    x = "Date")
+```
+
+
+### Offshore
+
+```{r}
+
+ggplot() +
+  geom_col(
+    data = offshore_summ,
+      aes(year, mhw_days, fill = var), 
+      alpha = 0.6, position = "dodge") +
+  facet_wrap(~area_id) +
+  scale_y_continuous(limits = c(0,365)) +
+  scale_fill_gmri() +
+  theme_gmri(legend.position = "bottom") +
+  labs(
+    title = "Marine Heatwave Days\n(1993-2022 Climatology)", 
+    y = "Days",
+    fill = "", 
+    x = "Date")
+```
+
+:::
+
+# Days Over 20C
+
+
+::: panel-tabset
+
+### Nearshore
+
+```{r}
+
+
+ggplot() +
+  geom_col(
+    data = inshore_summ,
+      aes(year, over_20, fill = var), 
+      alpha = 0.6, position = "dodge") +
+  facet_wrap(~area_id) +
+  scale_fill_gmri() +
+  scale_y_continuous(limits = c(0,365)) +
+  theme_gmri(legend.position = "bottom") +
+  labs(
+    title = "Days Above 20C", 
+    y = "Days",
+    fill = "", 
+    x = "Date")
+```
+
+
+### Offshore
+
+```{r}
+
+ggplot() +
+  geom_col(
+    data = offshore_summ,
+      aes(year, over_20, fill = var), 
+      alpha = 0.6, position = "dodge") +
+  facet_wrap(~area_id) +
+  scale_fill_gmri() +
+  scale_y_continuous(limits = c(0,365)) +
+  theme_gmri(legend.position = "bottom") +
+  labs(
+    title = "Days Above 20C", 
+    y = "Days",
+    fill = "", 
+    x = "Date")
+```
+
+:::
+
+# Preferred Temperature Days 12-18C
+
+
+::: panel-tabset
+
+### Nearshore
+
+```{r}
+
+
+ggplot() +
+  geom_col(
+    data = inshore_summ,
+      aes(year, between_1218, fill = var), 
+      alpha = 0.6, position = "dodge") +
+  facet_wrap(~area_id) +
+  scale_fill_gmri() +
+  scale_y_continuous(limits = c(0,365)) +
+  theme_gmri(legend.position = "bottom") +
+  labs(
+    title = "Days Between 12-18C", 
+    y = "Days",
+    fill = "", 
+    x = "Date")
+```
+
+
+### Offshore
+
+```{r}
+
+ggplot() +
+  geom_col(
+    data = offshore_summ,
+      aes(year, between_1218, fill = var), 
+      alpha = 0.6, position = "dodge") +
+  facet_wrap(~area_id) +
+  scale_fill_gmri() +
+  scale_y_continuous(limits = c(0,365)) +
+  theme_gmri(legend.position = "bottom") +
+  labs(
+    title = "Days Between 12-18C", 
+    y = "Days",
+    fill = "", 
+    x = "Date")
+```
+
+:::
+
+# Growing Season Start >10C
+
+# Growing Season End
+
+# Regional Hospitability
+
+Are any regions becoming inhospitable based on thermal characteristics?
+
+# Regime Shifts
+
+
