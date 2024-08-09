@@ -187,13 +187,17 @@ ggplot() +
 ### Nearshore
 
 ```{r}
+#| fig-height: 10
+
 ggplot(inshore_timeseries) +
-  geom_line(aes(time, surface_temp, color = "Surface Temperature"), alpha = 0.6, , linewidth = 0.35) +
-  geom_line(aes(time, bottom_temp, color = "Bottom Temperature"), alpha = 0.6, linewidth = 0.35) +
-  facet_wrap(~area_id) +
+  geom_line(aes(time, surface_temp, color = "Surface Temperature"), alpha = 0.8, , linewidth = 0.35) +
+  geom_line(aes(time, bottom_temp, color = "Bottom Temperature"), alpha = 0.8, linewidth = 0.35) +
+  facet_grid(area_id ~ .) +
   scale_color_gmri() +
   scale_y_continuous(labels = label_number(suffix = deg_c)) +
-  theme_gmri(legend.position = "bottom") +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
   labs(y = "Temperature", color = "", x = "Date")
 ```
 
@@ -203,12 +207,14 @@ ggplot(inshore_timeseries) +
 
 ```{r}
 ggplot(offshore_timeseries) +
-  geom_line(aes(time, surface_temp, color = "Surface Temperature"), alpha = 0.6, , linewidth = 0.8) +
-  geom_line(aes(time, bottom_temp, color = "Bottom Temperature"), alpha = 0.6, linewidth = 0.8) +
-  facet_wrap(~area_id) +
+  geom_line(aes(time, surface_temp, color = "Surface Temperature"), alpha = 0.8, , linewidth = 0.8) +
+  geom_line(aes(time, bottom_temp, color = "Bottom Temperature"), alpha = 0.8, linewidth = 0.8) +
+  facet_grid(area_id ~ .) +
   scale_color_gmri() +
   scale_y_continuous(labels = label_number(suffix = deg_c)) +
-  theme_gmri(legend.position = "bottom") +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
   labs(y = "Temperature", color = "", x = "Date")
 ```
 
@@ -432,19 +438,24 @@ offshore_hw_bot <- offshore_timeseries %>%
 ### Nearshore
 
 ```{r}
+#| fig-height: 10
+
+
 ggplot() +
   geom_line(
     data = inshore_hw_surf,
     aes(time, sst_anom, color = "Surface Temperature Anomaly"), 
-    alpha = 0.6, , linewidth = 0.35) +
+    alpha = 0.8, , linewidth = 0.35) +
   geom_line(
     data = inshore_hw_bot,
     aes(time, sst_anom, color = "Bottom Temperature Anomaly"), 
-    alpha = 0.6, linewidth = 0.35) +
-  facet_wrap(~area_id) +
+    alpha = 0.8, linewidth = 0.35) +
+  facet_grid(area_id ~ .) +
   scale_color_gmri() +
   scale_y_continuous(labels = label_number(suffix = deg_c)) +
-  theme_gmri(legend.position = "bottom") +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
   labs(y = "Temperature", color = "", x = "Date")
 ```
 
@@ -456,15 +467,17 @@ ggplot() +
   geom_line(
     data = offshore_hw_surf,
     aes(time, sst_anom, color = "Surface Temperature Anomaly"), 
-    alpha = 0.6, , linewidth = 0.8) +
+    alpha = 0.8, , linewidth = 0.8) +
   geom_line(
     data = offshore_hw_bot,
     aes(time, sst_anom, color = "Bottom Temperature Anomaly"), 
-    alpha = 0.6, linewidth = 0.8) +
-  facet_wrap(~area_id) +
+    alpha = 0.8, linewidth = 0.8) +
+  facet_grid(area_id ~ .) +
   scale_color_gmri() +
   scale_y_continuous(labels = label_number(suffix = deg_c)) +
-  theme_gmri(legend.position = "bottom") +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
   labs(y = "Temperature", color = "", x = "Date")
 ```
 
@@ -524,21 +537,23 @@ offshore_summ <- bind_rows(
 ### Nearshore
 
 ```{r}
-
+#| fig-height: 10
 
 ggplot() +
-  geom_col(
+  geom_line(
     data = inshore_summ,
-      aes(year, mhw_days, fill = var), 
-      alpha = 0.6, position = "dodge") +
-  facet_wrap(~area_id) +
-  scale_fill_gmri() +
+      aes(year, mhw_days, color = var), 
+      alpha = 0.8, position = "dodge") +
+  facet_grid(area_id ~ .) +
+  scale_color_gmri() +
   scale_y_continuous(limits = c(0,365)) +
-  theme_gmri(legend.position = "bottom") +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
   labs(
     title = "Marine Heatwave Days\n(1993-2022 Climatology)", 
     y = "Days",
-    fill = "", 
+    color = "", 
     x = "Date")
 ```
 
@@ -548,18 +563,20 @@ ggplot() +
 ```{r}
 
 ggplot() +
-  geom_col(
+  geom_line(
     data = offshore_summ,
-      aes(year, mhw_days, fill = var), 
-      alpha = 0.6, position = "dodge") +
-  facet_wrap(~area_id) +
+      aes(year, mhw_days, color = var), 
+      alpha = 0.8, position = "dodge") +
+  facet_grid(area_id ~ .) +
   scale_y_continuous(limits = c(0,365)) +
-  scale_fill_gmri() +
-  theme_gmri(legend.position = "bottom") +
+  scale_color_gmri() +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
   labs(
     title = "Marine Heatwave Days\n(1993-2022 Climatology)", 
     y = "Days",
-    fill = "", 
+    color = "", 
     x = "Date")
 ```
 
@@ -573,21 +590,23 @@ ggplot() +
 ### Nearshore
 
 ```{r}
-
+#| fig-height: 10
 
 ggplot() +
-  geom_col(
+  geom_line(
     data = inshore_summ,
-      aes(year, over_20, fill = var), 
-      alpha = 0.6, position = "dodge") +
-  facet_wrap(~area_id) +
-  scale_fill_gmri() +
+      aes(year, over_20, color = var), 
+      alpha = 0.8, position = "dodge") +
+  facet_grid(area_id ~ .) +
+  scale_color_gmri() +
   scale_y_continuous(limits = c(0,365)) +
-  theme_gmri(legend.position = "bottom") +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
   labs(
     title = "Days Above 20C", 
     y = "Days",
-    fill = "", 
+    color = "", 
     x = "Date")
 ```
 
@@ -597,18 +616,21 @@ ggplot() +
 ```{r}
 
 ggplot() +
-  geom_col(
+  geom_line(
     data = offshore_summ,
-      aes(year, over_20, fill = var), 
-      alpha = 0.6, position = "dodge") +
-  facet_wrap(~area_id) +
-  scale_fill_gmri() +
+      aes(year, over_20, color = var), 
+      alpha = 0.8, position = "dodge",
+    linewidth = 1) +
+  facet_wrap(~area_id, ncol = 1) +
+  scale_color_gmri() +
   scale_y_continuous(limits = c(0,365)) +
-  theme_gmri(legend.position = "bottom") +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
   labs(
     title = "Days Above 20C", 
     y = "Days",
-    fill = "", 
+    color = "", 
     x = "Date")
 ```
 
@@ -622,22 +644,27 @@ ggplot() +
 ### Nearshore
 
 ```{r}
-
+#| fig-height: 10
 
 ggplot() +
-  geom_col(
+  geom_line(
     data = inshore_summ,
-      aes(year, between_1218, fill = var), 
-      alpha = 0.6, position = "dodge") +
-  facet_wrap(~area_id) +
-  scale_fill_gmri() +
+      aes(year, between_1218, color = var), 
+      alpha = 0.8, position = "dodge") +
+  facet_grid(area_id ~ .) +
+  scale_color_gmri() +
   scale_y_continuous(limits = c(0,365)) +
-  theme_gmri(legend.position = "bottom") +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
   labs(
     title = "Days Between 12-18C", 
     y = "Days",
-    fill = "", 
+    color = "", 
     x = "Date")
+
+
+
 ```
 
 
@@ -646,24 +673,233 @@ ggplot() +
 ```{r}
 
 ggplot() +
-  geom_col(
+  geom_line(
     data = offshore_summ,
-      aes(year, between_1218, fill = var), 
-      alpha = 0.6, position = "dodge") +
-  facet_wrap(~area_id) +
-  scale_fill_gmri() +
+      aes(year, between_1218, color = var), 
+      alpha = 0.8, position = "dodge") +
+  facet_grid(area_id ~ .) +
+  scale_color_gmri() +
   scale_y_continuous(limits = c(0,365)) +
-  theme_gmri(legend.position = "bottom") +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
   labs(
     title = "Days Between 12-18C", 
     y = "Days",
-    fill = "", 
+    color = "", 
     x = "Date")
 ```
 
 :::
 
 # Growing Season Start >10C
+
+```{r}
+#| eval: true
+
+
+# Function to check a column is over some threshold, arranged by some other column for time
+find_threshold_cross <- function(df, col_x, date_col, threshold, roll_avg = T){
+  
+   # tidyeval formatting
+   col_x <- sym(col_x)
+   date_col <- sym(date_col)
+   all_vals <- df %>% pull({{col_x}})
+  
+   # Do rolling mean:
+   if(roll_avg){
+     all_vals <- zoo::rollmean(all_vals, k = 10)
+     df <- mutate(df, roll_avg := zoo::rollmean({{col_x}}, k = 10, fill = NA))}
+  
+   # Are any over? if not return NA
+   if(any(all_vals > threshold, na.rm = T) == FALSE){ 
+     return(
+       tibble("v1" = NA, "v2" = NA) %>% 
+       rename(
+         {{date_col}} := "v1",
+         {{col_x}} := "v2") %>% 
+     mutate(threshold = threshold)) }
+  
+   # If so then find that first crossing - rolling avg dependent
+   check_col <- ifelse(roll_avg, sym("roll_avg"), col_x)
+   
+   # Return that row
+   return_value = df %>% 
+     arrange({{date_col}}) %>%
+     filter({{check_col}} > threshold) %>%
+     slice(1)  %>% 
+     select({{date_col}}, {{col_x}}) %>% 
+     mutate(threshold = threshold)
+  
+   return(return_value)
+}
+
+
+
+
+# # check if it works - cool it does
+# inshore_hw_bot %>% 
+#   filter(
+#     area_id == "625-Virginia_Shore") %>% 
+#   find_threshold_cross(
+#     ., 
+#     col_x = "sst", 
+#     date_col = "time", 
+#     threshold = 12, 
+#     roll_avg = F)
+```
+
+
+```{r}
+#| eval: true
+
+# Process inshore growing season start
+inshore_thresh <- bind_rows(
+    inshore_hw_surf %>% 
+      mutate(year_area = str_c(lubridate::year(time), "XX", area_id)) %>% 
+      split(.$year_area) %>% 
+      map_dfr(function(x){
+        find_threshold_cross(
+          x,
+          col_x = "sst",
+          date_col = "time",
+          threshold = 10,
+          roll_avg = F)
+      }, .id = "year_area") %>%
+      separate(col = year_area, sep = "XX", into = c("year", "area_id")) %>% 
+      mutate(var = "Surface Temperature")
+    ,
+      
+    inshore_hw_bot %>% 
+      mutate(year_area = str_c(lubridate::year(time), "XX", area_id)) %>% 
+      split(.$year_area) %>% 
+      map_dfr(function(x){
+        find_threshold_cross(
+          x,
+          col_x = "sst",
+          date_col = "time",
+          threshold = 10,
+          roll_avg = F)
+      }, .id = "year_area") %>%
+      separate(col = year_area, sep = "XX", into = c("year", "area_id")) %>% 
+      mutate(var = "Bottom Temperature")
+    
+  )
+
+
+
+# Process Offshore
+offshore_thresh <- bind_rows(
+    offshore_hw_surf %>% 
+      mutate(year_area = str_c(lubridate::year(time), "XX", area_id)) %>% 
+      split(.$year_area) %>% 
+      map_dfr(function(x){
+        find_threshold_cross(
+          x,
+          col_x = "sst",
+          date_col = "time",
+          threshold = 10,
+          roll_avg = F)
+      }, .id = "year_area") %>%
+      separate(col = year_area, sep = "XX", into = c("year", "area_id")) %>% 
+      mutate(var = "Surface Temperature")
+    ,
+      
+    offshore_hw_bot %>% 
+      mutate(year_area = str_c(lubridate::year(time), "XX", area_id)) %>% 
+      split(.$year_area) %>% 
+      map_dfr(function(x){
+        find_threshold_cross(
+          x,
+          col_x = "sst",
+          date_col = "time",
+          threshold = 10,
+          roll_avg = F)
+      }, .id = "year_area") %>%
+      separate(col = year_area, sep = "XX", into = c("year", "area_id")) %>% 
+      mutate(var = "Bottom Temperature")
+    
+  )
+
+
+    
+```
+
+::: panel-tabset
+
+### Nearshore
+
+```{r}
+#| fig-height: 10
+
+inshore_thresh %>% 
+  drop_na(time) %>% 
+  mutate(
+    year = as.numeric(year),
+    thresh_doy = lubridate::day(time),
+    thresh_date = as.Date("2000-01-01") + thresh_doy-1) %>% 
+  ggplot() +
+  geom_hline(yintercept = 10, linewidth = 0.5, color = "gray") +
+  geom_line(
+    aes(year, thresh_date, color = var, group = 1), 
+    alpha = 0.8, , linewidth = 0.35) +
+  facet_grid(area_id ~ fct_rev(var)) +
+  scale_color_gmri() +
+  scale_y_date(
+    date_breaks = "1 month", 
+    labels = date_format("%b")#,
+    # limits = as.Date(c("2000-01-01", "2000-12-31")),
+    # expand = expansion(add = c(0,0))
+    ) +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
+  labs(
+    title = "First Day Above 10C", 
+    y = "Day of Year",
+    color = "", 
+    x = "Year")
+
+
+
+```
+
+
+### Offshore
+
+```{r}
+offshore_thresh %>% 
+  drop_na(time) %>% 
+  mutate(
+    year = as.numeric(year),
+    thresh_doy = lubridate::day(time),
+    thresh_date = as.Date("2000-01-01") + thresh_doy-1) %>% 
+  ggplot() +
+  geom_hline(yintercept = 10, linewidth = 0.5, color = "gray") +
+  geom_line(
+    aes(year, thresh_date, color = var, group = 1), 
+    alpha = 0.8, , linewidth = 0.8) +
+  facet_grid(area_id ~ fct_rev(var)) +
+  scale_color_gmri() +
+  scale_y_date(
+    date_breaks = "1 month", 
+    labels = date_format("%b")#,
+    # limits = as.Date(c("2000-01-01", "2000-12-31")),
+    # expand = expansion(add = c(0,0))
+    ) +
+  theme_gmri(
+    legend.position = "bottom",
+    strip.text.y = element_text(angle = 0)) +
+  labs(
+    title = "First Day Above 10C", 
+    y = "Day of Year",
+    color = "", 
+    x = "Year")
+```
+
+:::
+
+
 
 # Growing Season End
 
