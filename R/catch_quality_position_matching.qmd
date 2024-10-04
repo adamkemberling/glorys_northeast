@@ -1,0 +1,140 @@
+---
+title: "Bottom Temperature Location Matching with Ship Position"
+format: 
+    html:
+        toc: true
+        self-contained: true
+---
+
+## About:
+
+Pair GLORYs bottom temperature estimates with ship position information to obtain a bottom temperature record to align with catch-quality information.
+
+
+```{r}
+library(raster)
+library(here)
+library(gmRi)
+library(readxl)
+library(tidyverse)
+library(sf)
+
+
+
+# Load the position data
+locations <- read_xlsx(here("local_data/baukus_trip_positions", "Sensor Trip Position Data.xlsx"))
+
+
+# Convert to decimal degrees
+locations <- locations |>
+    mutate(
+        lon_deg = `Long Deg` + ((`Long Min` + `Long Sec` / 60) / 60),
+        lon_deg = if_else(lon_deg > 0, lon_deg * -1, lon_deg),
+        lat_deg = `Lat Deg` + ((`Lat Min` + `Lat Sec` / 60) / 60)
+    )
+
+
+# Map them
+ggplot(locations, aes(lon_deg, lat_deg)) +
+  geom_point() +
+  theme_minimal() +
+  map_theme() + 
+  labs(
+    x = "Longitude",
+    y = "Latitude",
+    title = "Position Locations")
+
+```
+
+
+### Load GLORYs and Pull Bottom Temperature
+
+I separated bottom temperature from the data in `py/Baukus_Bottom_Temps.ipynb`, the data can now be loaded with raster and extracted.
+
+```{r}
+# Load the regional glorys bottom temperature data I prepared
+btemp_23 <- stack(
+  here::here("Baukus_GLORYS_bottemp/CMEMS_Northeast_TempSal_Bottom_2023.nc"), 
+  varname = "bottom_temp")
+btemp_24 <- stack(
+  here::here("Baukus_GLORYS_bottemp/CMEMS_Northeast_TempSal_Bottom_2024.nc"), 
+  varname = "bottom_temp")
+
+# Combine the years
+btemp <- stack(btemp_23, btemp_24)
+
+# Plot one
+plot(btemp[[10]])
+```
+
+
+# Date Matching
+
+```{r}
+# Get Dates for date matching
+
+# GLORYS date layers
+glorys_dates <- names(btemp) %>% 
+  str_sub(2, -1) %>% 
+  str_replace_all("[.]", "-")
+
+# Dates from the ship, named by row number
+ship_dates <- locations %>% 
+  mutate(
+    row_num = row_number(),
+    date = str_sub(Date, 1, 10)) %>% 
+  pull(date, row_num)
+
+# Which date from glorys go with the dates from the ship
+date_matches <- map(ship_dates, function(ship_date){
+  index_match <- which(ship_date== glorys_dates)})
+
+
+# Function to check if a value is not integer(0)
+not_integer0 <- function(x) {!(is.integer(x) && length(x) == 0)}
+
+# Drop the non-matches dates
+date_matches <- date_matches[which(map_lgl(date_matches, not_integer0))]
+
+
+# Map through those, extract bottom temperature values
+location_bottemps <- imap_dfr(date_matches, function(glorys_index, locations_rownum){
+  
+  # Make an sf point from that row
+  row_sf <- st_as_sf(locations[locations_rownum,], coords = c("lon_deg", "lat_deg"), remove = FALSE, crs = 4326)
+  
+  # Use extract to pull the value out of that raster stack at the appropriate date
+  row_sf <- mutate(
+    row_sf, 
+    bot_temp_c = raster::extract(btemp[[glorys_index]], row_sf),
+    bot_temp_f = as_fahrenheit(bot_temp_c, data_type = "temperature"))
+  return(row_sf)
+  
+})
+
+
+# Plot those
+location_bottemps %>% 
+  ggplot(aes(`Surface Water Temp (F)`, bot_temp_f)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0)
+
+# Plot in time
+location_bottemps %>% 
+  ggplot(aes(x = Date)) +
+  geom_point(aes(y = `Surface Water Temp (F)`, color = "Surface Temp F")) +
+  geom_point(aes(y = bot_temp_f, color = "Bottom Temp F")) +
+  scale_color_gmri() +
+  theme_gmri() +
+  geom_abline(slope = 1, intercept = 0)
+
+# How far off are they?
+location_bottemps %>% dplyr::select(Date, `Surface Water Temp (F)`, bot_temp_f)
+
+
+# How many aren't available yet?
+nrow(locations)
+nrow(location_bottemps)
+```
+
+
