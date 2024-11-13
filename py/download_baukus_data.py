@@ -33,7 +33,7 @@ os.listdir()
 
 # Download the rang of dates from the interim dataset
 # Load some years
-years = np.arange(2024, 2025)
+years = np.arange(2023, 2025)
 months = np.arange(1,13)
 months = [f"{mnth:02}" for mnth in months]
 

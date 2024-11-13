@@ -10,6 +10,7 @@ __pycache__/
 .DS_Store
 .Rhistory
 GLORYS_data/
+GLORYS_surfbot_temps/
 Baukus_GLORYS_data/
 Baukus_GLORYS_bottemp/
 local_data/

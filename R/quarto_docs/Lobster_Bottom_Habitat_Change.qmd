@@ -1,0 +1,737 @@
+---
+title: "Lobster Thermal Preference and GLORYS Bottom Temperature"
+author: "Adam Kemberling"
+date: "Updated on: `r Sys.Date()`"
+format: 
+  html:
+    toc: true
+    self-contained: true
+    code-fold: true
+execute:
+  echo: true
+  fig-width: 8
+  fig-height: 7
+  message: false
+  warning: false
+editor: source
+---
+
+
+
+```{r}
+# Libraries
+library(tidyverse)
+library(gmRi)
+library(rnaturalearth)
+library(scales)
+library(sf)
+library(gt)
+library(patchwork)
+library(ggdist)
+library(ggimage)
+library(tidyterra)
+library(terra)
+conflicted::conflict_prefer("select", "dplyr")
+conflicted::conflict_prefer("filter", "dplyr")
+
+# ggplot theme
+theme_set(
+  theme_gmri(
+    axis.line.y = element_line(),
+    axis.ticks.y = element_line(), 
+    rect = element_rect(fill = "white", color = NA),
+    panel.grid.major.y = element_blank(),
+    strip.text.y = element_text(angle  = 0),
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8),
+    legend.position = "bottom"))
+
+
+
+# Degree symbol
+deg_c <- "\u00b0C"
+
+
+# Make a box to use when cropping based on an xlim and ylim pair
+make_cropbox <- function(xlims, ylims){
+  sfc <- st_sfc(st_polygon(list(
+    rbind(c(xlims[[1]], ylims[[1]]),  
+          c(xlims[[1]], ylims[[2]]), 
+          c(xlims[[2]], ylims[[2]]), 
+          c(xlims[[2]], ylims[[1]]), 
+          c(xlims[[1]], ylims[[1]])))))
+  sfc <- st_as_sf(sfc)
+  return(sfc)
+}
+
+```
+
+
+# Contents:
+
+ 1. Progression of Temperature Change in NE Atlantic (annual, seasonal)    
+ 2. Representation of Warming Rates    
+ 3. Thermal habitat changes for lobster   
+
+
+## Prepare Monthly Temperature Data
+
+From a thermal preference angle, the suitability of certain habitats to lobster will change based on bottom temperature. 
+
+
+**Reference on Habitat Suitability**
+https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0147627&type=printable
+
+```{r}
+#| label: load monthly glorys
+
+# Load GLORYS
+gpath = cs_path("res", "GLORYs/NE_Shelf_TempSal_Monthly")
+
+# Load the monthly averages and the climatology
+# Done in: py/Monthly_Surface_and_Bottom.ipynb
+
+# Temperature and anomalies
+temps_monthly <- terra::rast(
+  str_c(gpath, "Northwest_Atlantic_Surface_Bottom_93to2022_anoms.nc"))
+
+# # Layer sources
+# terra::sources(temps_monthly)
+# terra::varnames(temps_monthly)
+
+
+# Dates
+r_dates <- terra::time(temps_monthly)
+
+# Why does it stack them this way?
+which(year(r_dates) == "2000" & month(r_dates) == 6)
+
+
+# # climatology
+# glorys_clim <- terra::rast(
+#   str_c(gpath,"Northwest_Atlantic_Surface_Bottom_93to2022_clim.nc"))
+
+
+```
+
+
+
+### Crop and Plot Something
+
+```{r}
+
+# Define the bounding box as an sf object
+# Cropping Extent  
+crop_extent <- make_cropbox(
+  xlims = c(-79, -56), 
+  ylims = c(32, 51))
+
+# Crop it
+temps_cropped <- terra::crop(temps_monthly, crop_extent)
+
+temps_cropped$
+
+```
+
+
+
+### 1. Pull September Averages
+
+```{r}
+# Pull Just September:
+month_sept <- month_sst[[which(str_sub(names(month_sst), 7, 8) == "09")]]
+
+plot(month_sept$X1981.09.30, col = temp_pal, main = "September 1981")
+```
+
+
+
+
+### 2. Crop to Our Area
+
+```{r}
+# Cropping Extent  
+crop_extent <- make_cropbox(xlims = c(-79, -56), 
+                            ylims = c(32, 51))
+#st_crs(crop_extent) <- crs(month_sst)
+
+# Crop it
+gom_monthly <- mask_nc(month_sept, mask_shape = crop_extent, rotate = T)
+
+# Plot a tester:
+plot(gom_monthly$X1981.09.30, col = temp_pal, main = "September 1981")
+```
+
+
+### 3. Consolidate Into Decades
+
+
+```{r}
+
+# Decades
+decades <- list(
+  "1990s" = 199,
+  "2000s" = 200,
+  "2010s" = 201)
+
+
+# Get the mean temp for each decade
+temp_decades <- map(decades, function(decade_id){
+  year_layers <- which(str_sub(names(gom_monthly), 2, 4) == decade_id)
+  decade_dat <- gom_monthly[[year_layers]]
+  decade_mean <- mean(decade_dat, na.rm = T)
+  return(decade_mean)
+  
+  
+}) %>% stack()
+
+plot(temp_decades$X1990s, main = "1990's September", col = temp_pal)
+```
+
+
+### 4. Cover Data from the Great Lakes
+
+
+```{r}
+
+# Make a shape for the area
+lakes_cover <- make_cropbox(xlims = c(-80, -75),
+                            ylims = c(43, 45))
+
+
+#lakes_ras <- mask(temp_decades[[1]], lakes_cover, inverse = TRUE)
+
+# Mask that region
+temp_decades <- mask(temp_decades, lakes_cover, inverse = TRUE)
+plot(temp_decades$X1990s, main = "1990's September", col = temp_pal) 
+```
+
+
+
+
+###  5. Enhance the Resolution
+
+
+
+
+```{r}
+# Resample to Finer Resolution
+# Helps it look better if the grid makes squares
+s <- raster(nrow = 1400, 
+            ncol = 2000, 
+            xmn = extent(crop_extent)[1], 
+            xmx = extent(crop_extent)[2], 
+            ymn = extent(crop_extent)[3], 
+            ymx = extent(crop_extent)[4])
+
+# Resample to higher resolution
+temp_hires <- raster::resample(temp_decades, s)
+
+# check one
+plot(temp_hires$X1990s, main = "1990's September (Resampled)", col = temp_pal)
+```
+
+
+### 6. Mask with Land
+
+```{r}
+# Now that the resolution is sharper we'll want to crop it so that it doesn't look
+# So blocky next to the coast:
+
+# Read in shapefile for coasts of US and Canada:
+library(rgeoboundaries)
+
+# Canada:
+canada_sf <- ne_states("canada", returnclass = "sf")
+
+# USA with MD messed up
+# us_sf <- ne_states("united states of america", returnclass = "sf")
+
+# USA with better States
+us_sf <- gb_adm1(country = "usa", type = "sscgs")
+
+# Filter to our area
+new_england <- us_sf %>% filter(shapeISO %in% str_c("US-", c("ME", "NH", "MA", "CT", "MD", "PA", "NY", "VT", "NC", "SC", "VA", "WV", "DE", "SC", "NJ", "RI")))
+
+# Join them
+north_america <- bind_rows(list(mutate(canada_sf, country = "Canada"),
+                                mutate(us_sf, country = "United States")))
+
+# North America Zoom Extent
+na_bbox <- c(xmin = -82, 
+             ymin = 29, 
+             xmax = -54, 
+             ymax = 52)
+north_cropped <- st_crop(north_america, na_bbox)
+
+
+# # Map it
+# ggplot(north_america) + 
+#   geom_sf(fill = "gray60", color = "white", size = 0.25) +
+#   coord_sf(xlim = c(-82, -53), ylim = c(29, 52), expand = F, crs = 4326) 
+
+
+
+# Mask that region
+temp_coasts <- mask(temp_hires, north_cropped, inverse = TRUE)
+plot(temp_coasts$X1990s, 
+     main = "1990's September - coastline smoothed", 
+     col = temp_pal, 
+     xlim = c(-75, -60),
+     ylim = c(40, 48)) 
+
+```
+
+
+
+##  Decadal Temperature Shifts {.tabset .tabset-pills}
+
+
+The decadal average temperatures for the region are as follows:
+
+### 1990's
+
+```{r}
+plot(temp_coasts$X1990s, main = "Average SST 1990's", col = temp_pal)
+
+```
+
+### 2000's
+
+```{r}
+plot(temp_coasts$X2000s, main = "Average SST 2000's", col = temp_pal)
+```
+
+### 2010's
+
+```{r}
+plot(temp_coasts$X2010s, main = "Average SST 2010's", col = temp_pal)
+```
+
+ 
+# Thermal Preference Curves
+
+Knowing that the temperatures globally are changing, it is logical to anticipate species to adjust their movements and behaviors to follow their thermal preferences.
+
+From historical datasets and experiments we are able to determine the range of temperatures that species need and/or prefer in order to live. 
+
+Knowing these limits then lets us project onto a map where those conditions exist and where conditions are less-tolerable.
+
+```{r}
+
+# Get temperature range for study area as a vector
+temp_range <- seq(min(values(gom_monthly), na.rm = T),
+                  #max(values(gom_monthly), na.rm = T),
+                  36,
+                  by = .1)
+
+
+
+
+# Function to make preference rasters:
+make_pref_ras <- function(in_ras, ras_name, p1, p2, alpha, gamma){
+  
+  # Make a new raster that we can swap values from  
+  pref_ras <- in_ras[[ras_name]]
+
+  # Assign values based on preference curve
+  values(pref_ras) <- betaFun(
+    values(pref_ras),
+    p1 = p1,
+    p2 = p2,
+    alpha = alpha,
+    gamma = gamma)
+  
+  return(pref_ras)
+
+  
+}
+```
+
+
+
+## Black Seas Bass {.tabset .tabset-pills}
+
+Black Sea Bass have a thermal preference (from fall survey data) of 18-25C or 64-77F.
+
+
+```{r}
+# Use the betaFun(), feed it temperature vector min/max and curve shape
+bsb_beta <- betaFun(
+  x = temp_range,
+        p1 = 18, 
+        # p2 = 25, # Lab venture
+        p2 = 32, # Expanded thermal preference
+        alpha = 1, 
+        gamma = 1)
+
+
+# Show the temp  preference
+plot(bsb_beta ~ temp_range, type = "l", main = "Black Sea Bass\nFall Temperature Preference", ylab = "Preference", xlab = "Temperature Range")
+
+
+
+
+
+
+# Run thermal preference for each year
+hires_list <- unstack(temp_coasts) %>% setNames(names(temp_coasts))
+bsb_prefs <- imap(hires_list, make_pref_ras, p1 = 18, p2 = 25, alpha = 1, gamma = 1)
+
+```
+
+### Sea Bass 1990's
+
+```{r}
+plot(bsb_prefs$X1990s, 
+     main = "1990's Black Sea Bass Thermal Preference", 
+     col = terrain.colors(14, rev = T), 
+     xlim = c(-78, -63), 
+     ylim = c(35.5,46))
+
+
+ggplot() +
+  geom_stars(data = st_as_stars(bsb_prefs$X1990s)) +
+  geom_sf(data = new_england, fill = "gray90", linewidth = .25) +
+    geom_sf(data = canada, fill = "gray90", linewidth = .25) +
+    geom_sf(data = greenland, fill = "gray90", linewidth = .25) +
+  scale_fill_distiller(
+    palette = "YlGnBu", 
+    na.value = "transparent", 
+    limit = c(0, 1), 
+    direction = 1,
+    oob = scales::oob_censor,
+    breaks = c(0.15, 0.85), 
+    labels = c("Not Suitable", "Preferred")) +
+    map_theme(
+      title = element_text(hjust = 0.5, size = 8),
+      axis.text = element_text(size = 6),
+      legend.position = "bottom") +
+    coord_sf(xlim = c(-75.5, -64), 
+             ylim = c(38, 45), 
+             expand = F) +
+    guides("fill" = guide_colorbar(
+      title = "Temperature Preference",
+      title.position = "top",
+      title.hjust = 0.5,
+      barwidth = unit(3.5, "in"),
+      frame.colour = "black",
+      ticks.colour = "black")) +
+    labs(title = "Black Sea Bass Habitat\n1990's")
+```
+
+### Sea Bass 2000's
+
+```{r}
+
+plot(bsb_prefs$X2000s, 
+     main = "2000's Black Sea Bass Thermal Preference", 
+     col = terrain.colors(14, rev = T), 
+     xlim = c(-78, -63), 
+     ylim = c(35.5,46))
+```
+
+
+### Sea Bass 2010's
+
+```{r}
+# plot(bsb_prefs$X2010s, 
+#      main = "2010's Black Sea Bass Thermal Preference", 
+#      col = terrain.colors(14, rev = T), 
+#      xlim = c(-78, -63), 
+#      ylim = c(35.5,46))
+
+
+ggplot() +
+  geom_stars(data = st_as_stars(bsb_prefs$X2010s)) +
+  geom_sf(data = new_england, fill = "gray90", linewidth = .25) +
+    geom_sf(data = canada, fill = "gray90", linewidth = .25) +
+    geom_sf(data = greenland, fill = "gray90", linewidth = .25) +
+  scale_fill_distiller(
+    palette = "YlGnBu", 
+    na.value = "transparent", 
+    limit = c(0, 1), 
+    direction = 1,
+    oob = scales::oob_censor,
+    breaks = c(0.15, 0.85), 
+    labels = c("Not Suitable", "Preferred")) +
+    map_theme(
+      title = element_text(hjust = 0.5, size = 8),
+      axis.text = element_text(size = 6),
+      legend.position = "bottom") +
+    coord_sf(xlim = c(-75.5, -64), 
+             ylim = c(38, 45), 
+             expand = F) +
+    guides("fill" = guide_colorbar(
+      title = "Temperature Preference",
+      title.position = "top",
+      title.hjust = 0.5,
+      barwidth = unit(3.5, "in"),
+      frame.colour = "black",
+      ticks.colour = "black")) +
+    labs(title = "Black Sea Bass Habitat\n2010's")
+```
+
+
+
+
+
+ 
+## Lobster {.tabset .tabset-pills}
+
+Lobster have a thermal preference (lab venture) of 11-22C.
+ 
+ 
+```{r}
+# Use the betaFun(), feed it temperature vector min/max and curve shape
+lob_beta <- betaFun(
+  x = temp_range,
+        p1 = 11, 
+        p2 = 22, 
+        alpha = 1, 
+        gamma = 1)
+
+
+# Show the temp  preference
+plot(lob_beta ~ temp_range, type = "l", main = "Lobster\nFall Temperature Preference", ylab = "Preference", xlab = "Temperature Range")
+
+# Run thermal preference for each year
+lob_prefs <- imap(hires_list, make_pref_ras, p1 = 11, p2 = 22, alpha = 1, gamma = 1)
+
+```
+
+### Lobster 1990's
+
+```{r}
+plot(lob_prefs$X1990s, 
+     main = "1990's Lobster Thermal Preference", 
+     col = terrain.colors(14, rev = T), 
+     xlim = c(-75.25, -60), 
+     ylim = c(37.5,48))
+```
+
+### Lobster 2000's
+
+```{r}
+
+plot(lob_prefs$X2000s, 
+     main = "2000's Lobster Thermal Preference", 
+     col = terrain.colors(14, rev = T), 
+     xlim = c(-75.25, -60), 
+     ylim = c(37.5,48))
+```
+
+
+### Lobster 2010's
+
+```{r}
+# plot(lob_prefs$X2010s, 
+#      main = "2010's Lobster Thermal Preference", 
+#      col = terrain.colors(14, rev = T), 
+#      xlim = c(-75.25, -60), 
+#      ylim = c(37.5,48))
+
+
+ggplot() +
+  geom_stars(data = st_as_stars(lob_prefs$X2010s)) +
+  geom_sf(data = new_england, fill = "gray90", linewidth = .25) +
+    geom_sf(data = canada, fill = "gray90", linewidth = .25) +
+    geom_sf(data = greenland, fill = "gray90", linewidth = .25) +
+  scale_fill_distiller(
+    palette = "YlGnBu", 
+    na.value = "transparent", 
+    limit = c(0, 1), 
+    direction = 1,
+    oob = scales::oob_censor,
+    breaks = c(0.15, 0.85), 
+    labels = c("Not Suitable", "Preferred")) +
+    map_theme(
+      title = element_text(hjust = 0.5, size = 8),
+      axis.text = element_text(size = 6),
+      legend.position = "bottom") +
+    coord_sf(xlim = c(-75.5, -64), 
+             ylim = c(38, 45), 
+             expand = F) +
+    guides("fill" = guide_colorbar(
+      title = "Temperature Preference",
+      title.position = "top",
+      title.hjust = 0.5,
+      barwidth = unit(3.5, "in"),
+      frame.colour = "black",
+      ticks.colour = "black")) +
+    labs(title = "Lobster Thermal Habitat\n2010's")
+```
+
+## Both Species {.tabset .tabset-pills}
+
+### 1990's Both
+
+```{r}
+# Leaflet Versions
+library(leaflet)
+library(leaflet.extras)
+library(htmltools)
+
+
+# Lobster Preference
+r <- lob_prefs$X1990s
+# BSB Preference
+r2 <- bsb_prefs$X1990s
+
+
+r[r<0.1] <- NA
+pal <- colorNumeric(
+  #rev(c("#0C2C84", "#41B6C4", "#FFFFCC")),
+  #palette = "PuRd",
+  palette = "Reds",
+  values(r),
+  na.color = "transparent")
+
+
+r2[r2<0.1] <- NA
+pal2 <- colorNumeric(
+  palette = "Greens",
+  #c("#0C2C84", "#41B6C4", "#FFFFCC"), 
+  values(r2),
+  na.color = "transparent")
+
+
+# Make a map
+leaflet(options = leafletOptions(zoomControl = FALSE)) %>% 
+  addProviderTiles('Esri.WorldImagery') %>% 
+  setView(-68.4, 42, zoom = 6) %>% 
+  addRasterImage(
+    r, 
+    colors = pal, 
+    opacity = 0.7) %>%
+  addRasterImage(
+    r2,
+    colors = pal2,
+    opacity = 0.7) %>% 
+  addLabelOnlyMarkers(
+    lng = -68.8, 
+    lat = 43.1, 
+    label = "Lobster Thermal Habitat", 
+    labelOptions = labelOptions(
+      noHide = T, 
+      style = list(
+        "color" = "gray50",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        "font-size" = "12px"))) %>% 
+  addLabelOnlyMarkers(
+    lng = -72.5, 
+    lat = 39.6, 
+    label = "Black Sea Bass Thermal Habitat", 
+    labelOptions = labelOptions(
+      noHide = T, 
+      style = list(
+        "color" = "gray50",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        "font-size" = "12px"))) 
+```
+
+
+### 2010's Both
+
+```{r}
+
+# Lobster Preference
+r <- lob_prefs$X2010s
+# BSB Preference
+r2 <- bsb_prefs$X2010s
+
+
+r[r<0.1] <- NA
+pal <- colorNumeric(
+  #rev(c("#0C2C84", "#41B6C4", "#FFFFCC")),
+  #palette = "PuRd",
+  palette = "Reds",
+  values(r),
+  na.color = "transparent")
+
+
+r2[r2<0.1] <- NA
+pal2 <- colorNumeric(
+  palette = "Greens",
+  #c("#0C2C84", "#41B6C4", "#FFFFCC"), 
+  values(r2),
+  na.color = "transparent")
+
+
+# Make a map
+leaflet(options = leafletOptions(zoomControl = FALSE)) %>% 
+  addProviderTiles('Esri.WorldImagery') %>% 
+  setView(-68.4, 42, zoom = 6) %>% 
+  addRasterImage(
+    r, 
+    colors = pal, 
+    opacity = 0.7) %>%
+  addRasterImage(
+    r2,
+    colors = pal2,
+    opacity = 0.7) %>% 
+  addLabelOnlyMarkers(
+    lng = -68.8, 
+    lat = 43.1, 
+    label = "Lobster Thermal Habitat", 
+    labelOptions = labelOptions(
+      noHide = T, 
+      style = list(
+        "color" = "gray50",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        "font-size" = "12px"))) %>% 
+  addLabelOnlyMarkers(
+    lng = -72.5, 
+    lat = 39.6, 
+    label = "Black Sea Bass Thermal Habitat", 
+    labelOptions = labelOptions(
+      noHide = T, 
+      style = list(
+        "color" = "gray50",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        "font-size" = "12px"))) 
+```
+
+ 
+## Global Warming Rates
+
+
+```{r}
+# Load warming rates
+annual_rates <- raster::stack(str_c(oisst_path, "warming_rates/annual_warming_rates1982to2021.nc"),
+                              varname  = "annual_warming_rate")
+
+
+# Plot Rates
+plot(rotate(annual_rates), 
+     main = "Annual Warming Rate | 1982-2021", 
+     col = terrain.colors(14))
+
+```
+
+## Local Rates
+
+```{r}
+# # Crop to local area:
+rates_gom <- mask_nc(ras_obj = annual_rates, mask_shape = crop_extent, rotate = T)
+
+# Mask that region
+rates_gom <- mask(rates_gom, lakes_cover, inverse = TRUE)
+
+# Resample to higher resolution
+rates_hires <- raster::resample(rates_gom, s)
+
+# Plot Rates
+plot(rates_hires, 
+     main = "Annual Warming Rate | 1982-2021", 
+     col = terrain.colors(14))
+
+
+
+```
+
+

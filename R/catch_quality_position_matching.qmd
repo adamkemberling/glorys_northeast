@@ -12,13 +12,14 @@ Pair GLORYs bottom temperature estimates with ship position information to obtai
 
 
 ```{r}
+
+# Load libraries
 library(raster)
 library(here)
 library(gmRi)
 library(readxl)
 library(tidyverse)
 library(sf)
-
 
 
 # Load the position data
@@ -35,7 +36,7 @@ locations <- locations |>
 
 
 # Map them
-ggplot(locations, aes(lon_deg, lat_deg)) +
+ggplot(locations, aes(lon_deg, lat_deg, color = month.abb[lubridate::month(Date)])) +
   geom_point() +
   theme_minimal() +
   map_theme() + 
@@ -78,12 +79,14 @@ glorys_dates <- names(btemp) %>%
   str_sub(2, -1) %>% 
   str_replace_all("[.]", "-")
 
+
 # Dates from the ship, named by row number
 ship_dates <- locations %>% 
   mutate(
     row_num = row_number(),
     date = str_sub(Date, 1, 10)) %>% 
   pull(date, row_num)
+
 
 # Which date from glorys go with the dates from the ship
 date_matches <- map(ship_dates, function(ship_date){
@@ -117,7 +120,11 @@ location_bottemps <- imap_dfr(date_matches, function(glorys_index, locations_row
 location_bottemps %>% 
   ggplot(aes(`Surface Water Temp (F)`, bot_temp_f)) +
   geom_point() +
-  geom_abline(slope = 1, intercept = 0)
+  geom_abline(slope = 1, intercept = 0) +
+  labs(x = "Recorded Surface Temperature",
+       y = "GLORYS Bottom Temperature")
+
+
 
 # Plot in time
 location_bottemps %>% 
@@ -133,8 +140,16 @@ location_bottemps %>% dplyr::select(Date, `Surface Water Temp (F)`, bot_temp_f)
 
 
 # How many aren't available yet?
-nrow(locations)
-nrow(location_bottemps)
+nrow(locations) - nrow(location_bottemps)
+```
+
+
+# Save for Adam
+
+```{r}
+location_bottemps %>% 
+  st_drop_geometry() %>% 
+  write_csv(here::here("local_data/baukus_trip_positions/Sensor Trip Position BT Data.csv"))
 ```
 
 
