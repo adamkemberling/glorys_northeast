@@ -18,6 +18,11 @@ catalog = copernicusmarine.describe(overwrite_metadata_cache=True)
 # Check directory
 os.listdir()
 
+# Set the destination directory
+out_directory = "GLORYS_data"
+
+
+
 # Variables:
 # thetao = potential temperature in C
 # so = Salinity in psu
@@ -54,7 +59,7 @@ for yr in years:
         minimum_depth = 0,
         maximum_depth = 1500,
         output_filename = f"CMEMS_Northeast_TempSal_{yr}_{mnth}.nc",
-        output_directory = "GLORYS_data", 
+        output_directory = out_directory, 
         force_download = True
         )
 
@@ -94,7 +99,7 @@ for yr in years:
         minimum_depth = 0,
         maximum_depth = 1500,
         output_filename = f"CMEMS_Northeast_TempSal_{yr}_{mnth}.nc",
-        output_directory = "GLORYS_data", 
+        output_directory = out_directory, 
         force_download = True
         )
 

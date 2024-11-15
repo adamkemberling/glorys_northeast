@@ -31,6 +31,7 @@ library(ggdist)
 library(ggimage)
 library(tidyterra)
 library(terra)
+library(virtualspecies)
 conflicted::conflict_prefer("select", "dplyr")
 conflicted::conflict_prefer("filter", "dplyr")
 
@@ -39,17 +40,28 @@ theme_set(
   theme_gmri(
     axis.line.y = element_line(),
     axis.ticks.y = element_line(), 
-    rect = element_rect(fill = "white", color = NA),
+    rect = element_rect(fill = "transparent", color = NA),
     panel.grid.major.y = element_blank(),
     strip.text.y = element_text(angle  = 0),
     axis.text.x = element_text(size = 8),
     axis.text.y = element_text(size = 8),
-    legend.position = "bottom"))
+    legend.position = "bottom") +
+    theme(
+      plot.background = element_rect(fill = "transparent", color = "Black"),
+      panel.border = element_rect(fill = "transparent", color = "black", linewidth = 2), 
+      legend.title.position = "top"
+    ))
 
 
 
 # Degree symbol
 deg_c <- "\u00b0C"
+
+# Gulf of Maine
+gom_bounds <- read_sf(
+  gmRi::get_timeseries_paths(
+    region_group = "gmri_sst_focal_areas", 
+   box_location = "cloudstorage")$apershing_gulf_of_maine$shape_path)
 
 
 # Make a box to use when cropping based on an xlim and ylim pair
@@ -64,6 +76,12 @@ make_cropbox <- function(xlims, ylims){
   return(sfc)
 }
 
+# Temp palette:
+temp_pal <- rev(RColorBrewer::brewer.pal(n = 10, name = "RdBu"))
+
+
+new_england <- ne_states("united states of america", returnclass = "sf")
+canada <- ne_states("canada", returnclass = "sf")
 ```
 
 
@@ -78,9 +96,11 @@ make_cropbox <- function(xlims, ylims){
 
 From a thermal preference angle, the suitability of certain habitats to lobster will change based on bottom temperature. 
 
+Now that we have access to freely available ocean reanalysis data it is possible to explore high resolution differences in bottom habitat suitability throughout the year.
 
-**Reference on Habitat Suitability**
-https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0147627&type=printable
+
+**[Reference on Habitat Suitability](https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0147627&type=printable)**
+
 
 ```{r}
 #| label: load monthly glorys
@@ -95,6 +115,7 @@ gpath = cs_path("res", "GLORYs/NE_Shelf_TempSal_Monthly")
 temps_monthly <- terra::rast(
   str_c(gpath, "Northwest_Atlantic_Surface_Bottom_93to2022_anoms.nc"))
 
+
 # # Layer sources
 # terra::sources(temps_monthly)
 # terra::varnames(temps_monthly)
@@ -103,8 +124,8 @@ temps_monthly <- terra::rast(
 # Dates
 r_dates <- terra::time(temps_monthly)
 
-# Why does it stack them this way?
-which(year(r_dates) == "2000" & month(r_dates) == 6)
+# # Why does it stack them this way?
+# which(year(r_dates) == "2000" & month(r_dates) == 6)
 
 
 # # climatology
@@ -116,9 +137,9 @@ which(year(r_dates) == "2000" & month(r_dates) == 6)
 
 
 
-### Crop and Plot Something
 
 ```{r}
+#| label: crop and separate glorys variables
 
 # Define the bounding box as an sf object
 # Cropping Extent  
@@ -128,188 +149,328 @@ crop_extent <- make_cropbox(
 
 # Crop it
 temps_cropped <- terra::crop(temps_monthly, crop_extent)
+#varnames(temps_cropped)
+bt_anom <- temps_cropped["bottom_temp_anom"]
+sst_anom <- temps_cropped["surface_temp_anom"]
+sst <- temps_cropped["surface_temp"][1:372]
 
-temps_cropped$
+# Split them into separate variables
+# Find indices of layers that belong to "sst"
+layer_names        <- names(temps_cropped)
+sst_indices        <- which(str_detect(layer_names, "surface_temp"))
+sst_anom_indices   <- which(str_detect(layer_names, "surface_temp_anom"))
+bt_indices      <- which(str_detect(layer_names, "bottom_temp"))
+bt_anom_indices <- which(str_detect(layer_names, "bottom_temp_anom"))
+
+# and depth
+depth_indices      <- which(str_detect(layer_names, "depth"))
+
+# Subset the variables out separately by names
+`%notin%` <- negate(`%in%`)
+sst_indices <- sst_indices[which(sst_indices %notin% sst_anom_indices)]
+bt_indices <- bt_indices[which(bt_indices %notin% bt_anom_indices)]
+
+# Indexing is THE worst
+sst      <- temps_cropped[[sst_indices]]
+bt       <- temps_cropped[[bt_indices]]
+sst_anom <- temps_cropped[[sst_anom_indices]]
+bt_anom  <- temps_cropped[[bt_anom_indices]]
+depths   <- temps_cropped["depth"][[1]]
+
+
+# Assign dates as the names
+names(sst) <- time(sst)
+names(bt) <- time(bt)
+names(sst_anom) <- time(sst_anom)
+names(bt_anom) <- time(bt_anom)
+
+# Take one depth layer to make mask for values over limit NA
+bot_depth <- depths[[1]]
+over_depths <- which(values(bot_depth) > 1450)
+bot_depth[over_depths] <- NA
+
+# # Plot the depth
+# plot(bot_depth, main = "Max Depths")
 
 ```
 
 
 
-### 1. Pull September Averages
-
-```{r}
-# Pull Just September:
-month_sept <- month_sst[[which(str_sub(names(month_sst), 7, 8) == "09")]]
-
-plot(month_sept$X1981.09.30, col = temp_pal, main = "September 1981")
-```
-
-
-
-
-### 2. Crop to Our Area
-
-```{r}
-# Cropping Extent  
-crop_extent <- make_cropbox(xlims = c(-79, -56), 
-                            ylims = c(32, 51))
-#st_crs(crop_extent) <- crs(month_sst)
-
-# Crop it
-gom_monthly <- mask_nc(month_sept, mask_shape = crop_extent, rotate = T)
-
-# Plot a tester:
-plot(gom_monthly$X1981.09.30, col = temp_pal, main = "September 1981")
-```
-
-
-### 3. Consolidate Into Decades
 
 
 ```{r}
+#| label: get decadal averages of lobster bottom temperature
 
 # Decades
 decades <- list(
-  "1990s" = 199,
-  "2000s" = 200,
-  "2010s" = 201)
+  "avg_1990" = c(1990:1999),
+  "avg_2000" = c(2000:2009),
+  "avg_2010" = c(2010:2019)
+)
 
 
 # Get the mean temp for each decade
-temp_decades <- map(decades, function(decade_id){
-  year_layers <- which(str_sub(names(gom_monthly), 2, 4) == decade_id)
-  decade_dat <- gom_monthly[[year_layers]]
-  decade_mean <- mean(decade_dat, na.rm = T)
-  return(decade_mean)
+temp_decades <- purrr::map(decades, function(decade_yrs){
   
+  layer_indices <- which(lubridate::year(time(sst)) %in% decade_yrs)
   
-}) %>% stack()
+  sst_mean      <- terra::mean(sst[[layer_indices]], na.rm = T)
+  sst_anom_mean <- terra::mean(sst_anom[[layer_indices]], na.rm = T)
+  bt_mean       <- terra::mean(bt[[layer_indices]], na.rm = T)
+  bt_anom_mean  <- terra::mean(bt_anom[[layer_indices]], na.rm = T)
+  
+  # Mask depths below our downloaded depth limit
+  bt_mean[over_depths] <- NA
+  bt_anom_mean[over_depths] <- NA
 
-plot(temp_decades$X1990s, main = "1990's September", col = temp_pal)
+  decade_means <- list(
+    "sst"      = sst_mean,
+    "sst_anom" = sst_anom_mean,
+    "bt"       = bt_mean,
+    "bt_anom"  = bt_anom_mean)
+
+  return(decade_means)
+  
+}) 
+
+
 ```
 
 
-### 4. Cover Data from the Great Lakes
-
+### Gulf of Maine Bottom Temperature Timeseries
 
 ```{r}
-
-# Make a shape for the area
-lakes_cover <- make_cropbox(xlims = c(-80, -75),
-                            ylims = c(43, 45))
-
-
-#lakes_ras <- mask(temp_decades[[1]], lakes_cover, inverse = TRUE)
-
-# Mask that region
-temp_decades <- mask(temp_decades, lakes_cover, inverse = TRUE)
-plot(temp_decades$X1990s, main = "1990's September", col = temp_pal) 
+# 
+# # Whats our casco bay resolution again?
+# ggplot() +
+#   geom_spatraster(data = temp_decades$avg_1990$sst) +
+#   geom_sf(data = new_england) +
+#   geom_sf(data = canada) +
+#   scale_fill_viridis_c() +
+#   theme(panel.grid.major = element_line(color = "gray90")) +
+#   coord_sf(xlim = c(-70.4, -69), ylim = c(43.5, 44.2), expand = F, crs = st_crs(4269)) +
+#   labs(subtitle = "Surface Temperature",
+#        fill = "Temperature")
 ```
 
 
+##  Decadal Temperature Shifts 
 
+Changes in the decadal averages of surface and bottom temperatures for the region show a stark increase in temperature region wide in the 2010's.
 
-###  5. Enhance the Resolution
+Anomaly values below are the departure from the 1993-2022 long-term average for each month, then averaged across the decades of interest.
 
-
-
-
-```{r}
-# Resample to Finer Resolution
-# Helps it look better if the grid makes squares
-s <- raster(nrow = 1400, 
-            ncol = 2000, 
-            xmn = extent(crop_extent)[1], 
-            xmx = extent(crop_extent)[2], 
-            ymn = extent(crop_extent)[3], 
-            ymx = extent(crop_extent)[4])
-
-# Resample to higher resolution
-temp_hires <- raster::resample(temp_decades, s)
-
-# check one
-plot(temp_hires$X1990s, main = "1990's September (Resampled)", col = temp_pal)
-```
-
-
-### 6. Mask with Land
-
-```{r}
-# Now that the resolution is sharper we'll want to crop it so that it doesn't look
-# So blocky next to the coast:
-
-# Read in shapefile for coasts of US and Canada:
-library(rgeoboundaries)
-
-# Canada:
-canada_sf <- ne_states("canada", returnclass = "sf")
-
-# USA with MD messed up
-# us_sf <- ne_states("united states of america", returnclass = "sf")
-
-# USA with better States
-us_sf <- gb_adm1(country = "usa", type = "sscgs")
-
-# Filter to our area
-new_england <- us_sf %>% filter(shapeISO %in% str_c("US-", c("ME", "NH", "MA", "CT", "MD", "PA", "NY", "VT", "NC", "SC", "VA", "WV", "DE", "SC", "NJ", "RI")))
-
-# Join them
-north_america <- bind_rows(list(mutate(canada_sf, country = "Canada"),
-                                mutate(us_sf, country = "United States")))
-
-# North America Zoom Extent
-na_bbox <- c(xmin = -82, 
-             ymin = 29, 
-             xmax = -54, 
-             ymax = 52)
-north_cropped <- st_crop(north_america, na_bbox)
-
-
-# # Map it
-# ggplot(north_america) + 
-#   geom_sf(fill = "gray60", color = "white", size = 0.25) +
-#   coord_sf(xlim = c(-82, -53), ylim = c(29, 52), expand = F, crs = 4326) 
-
-
-
-# Mask that region
-temp_coasts <- mask(temp_hires, north_cropped, inverse = TRUE)
-plot(temp_coasts$X1990s, 
-     main = "1990's September - coastline smoothed", 
-     col = temp_pal, 
-     xlim = c(-75, -60),
-     ylim = c(40, 48)) 
-
-```
-
-
-
-##  Decadal Temperature Shifts {.tabset .tabset-pills}
-
-
-The decadal average temperatures for the region are as follows:
+::: panel-tabset
 
 ### 1990's
 
 ```{r}
-plot(temp_coasts$X1990s, main = "Average SST 1990's", col = temp_pal)
 
+
+# Surface Temperature
+sst_90 <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_1990$sst) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(8,27)) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "Surface Temperature",
+       fill = "Temperature")
+  
+# Bottom Temperature
+bt_90 <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_1990$bt) +
+  geom_spatraster_contour(data = temp_decades$avg_1990$bt, breaks = c(10), color = "White") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "Bottom Temperature",
+       fill = "Temperature")
+
+
+# Surface Temperature Anomaly
+sst_anom_90 <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_1990$sst_anom) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "SST Anomaly",
+       fill = "Temperature Anomaly")
+  
+# Bottom Temperature Anomlay
+bt_anom_90 <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_1990$bt_anom) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "BT Anomaly",
+       fill = "Temperature Anomaly")
+
+# Combine
+(sst_90 | bt_90) /
+  ((sst_anom_90 | bt_anom_90) + plot_layout(guides = "collect")) +
+  plot_annotation(title = "1990's Average") & theme(plot.margin = margin(1,1,1,1))
+ 
 ```
 
 ### 2000's
 
 ```{r}
-plot(temp_coasts$X2000s, main = "Average SST 2000's", col = temp_pal)
+
+# Surface Temperature
+sst_20s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2000$sst) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(8,27)) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "Surface Temperature",
+       fill = "Temperature")
+  
+# Bottom Temperature
+bt_20s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2000$bt) +
+  geom_spatraster_contour(data = temp_decades$avg_2000$bt, breaks = c(10), color = "White") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "Bottom Temperature",
+       fill = "Temperature")
+
+
+# Surface Temperature Anomaly
+sst_anom_20s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2000$sst_anom) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "SST Anomaly",
+       fill = "Temperature Anomaly")
+  
+# Bottom Temperature Anomlay
+bt_anom_20s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2000$bt_anom) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "BT Anomaly",
+       fill = "Temperature Anomaly")
+
+# Combine
+(sst_20s | bt_20s) /
+  ((sst_anom_20s | bt_anom_20s) + plot_layout(guides = "collect")) +
+  plot_annotation(title = "2000's Average")  & theme(plot.margin = margin(1,1,1,1))
 ```
 
 ### 2010's
 
 ```{r}
-plot(temp_coasts$X2010s, main = "Average SST 2010's", col = temp_pal)
+
+# Surface Temperature
+sst_21s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2010$sst) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(8,27)) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "Surface Temperature",
+       fill = "Temperature")
+  
+# Bottom Temperature
+bt_21s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2010$bt) +
+  geom_spatraster_contour(data = temp_decades$avg_2000$bt, breaks = c(10), color = "White") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "Bottom Temperature",
+       fill = "Temperature")
+
+
+# Surface Temperature Anomaly
+sst_anom_21s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2010$sst_anom) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "SST Anomaly",
+       fill = "Temperature Anomaly")
+  
+# Bottom Temperature Anomlay
+bt_anom_21s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2010$bt_anom) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(subtitle = "BT Anomaly",
+       fill = "Temperature Anomaly")
+
+# Combine
+(sst_21s | bt_21s) /
+  ((sst_anom_21s | bt_anom_21s) + plot_layout(guides = "collect")) +
+  plot_annotation(title = "2010's Average")  & theme(plot.margin = margin(1,1,1,1))
 ```
 
+:::
  
-# Thermal Preference Curves
+# Lobster Thermal Preferences
 
 Knowing that the temperatures globally are changing, it is logical to anticipate species to adjust their movements and behaviors to follow their thermal preferences.
 
@@ -317,15 +478,54 @@ From historical datasets and experiments we are able to determine the range of t
 
 Knowing these limits then lets us project onto a map where those conditions exist and where conditions are less-tolerable.
 
+Lobster are a relatively well studied species, and it is believed that they prefer a range of temperatures between 10 and 20C. The effects of exposure to temperatures on either side of this range has an asymmetry such that lower temperatures are less of an issue than warmer ones. Below 10C it is understood that lobster activity and metabolism is lower, but they are otherwise unharmed. Above 20C temperatures have a stressful effect and can lead to disease and mortality.
+
 ```{r}
+#| eval: true
+#| fig-height: 4
 
 # Get temperature range for study area as a vector
-temp_range <- seq(min(values(gom_monthly), na.rm = T),
-                  #max(values(gom_monthly), na.rm = T),
-                  36,
-                  by = .1)
+temp_range <- seq(
+  min(values(temps_monthly["bottom_temp"]), na.rm = T),
+  max(values(temps_monthly["surface_temp"]), na.rm = T),
+  by = .1)
 
 
+# Use the betaFun(), feed it temperature vector min/max and curve shape
+lob_beta <- betaFun(
+  x = temp_range,
+        p1 = 0, 
+        p2 = 20, 
+        alpha = 4, 
+        gamma = 0.7)
+
+
+# Show the temp  preference
+plot(
+  lob_beta ~ temp_range, 
+  type = "l", 
+  main = "Hypothetical Lobster Temperature Preference Curve", 
+  ylab = "Preference", 
+  xlab = "Temperature Range")
+
+
+```
+
+
+ 
+## Decadal Preference Maps 
+
+Lobster have a thermal preference (lab venture) of 11-22C.
+ 
+::: panel-tabset
+
+
+```{r}
+#| eval: true
+
+
+
+# Run thermal preference for each decadal average
 
 
 # Function to make preference rasters:
@@ -346,392 +546,723 @@ make_pref_ras <- function(in_ras, ras_name, p1, p2, alpha, gamma){
 
   
 }
-```
-
-
-
-## Black Seas Bass {.tabset .tabset-pills}
-
-Black Sea Bass have a thermal preference (from fall survey data) of 18-25C or 64-77F.
-
-
-```{r}
-# Use the betaFun(), feed it temperature vector min/max and curve shape
-bsb_beta <- betaFun(
-  x = temp_range,
-        p1 = 18, 
-        # p2 = 25, # Lab venture
-        p2 = 32, # Expanded thermal preference
-        alpha = 1, 
-        gamma = 1)
-
-
-# Show the temp  preference
-plot(bsb_beta ~ temp_range, type = "l", main = "Black Sea Bass\nFall Temperature Preference", ylab = "Preference", xlab = "Temperature Range")
 
 
 
 
+# Apply the preferences
+lob_prefs <- map(temp_decades, function(decade_x){
+  map(
+    setNames(c("sst", "bt"), 
+             c("sst", "bt")), 
+    function(x){
+      make_pref_ras(
+        in_ras = decade_x, 
+        ras_name =  x, 
+        p1 = 0, 
+        p2 = 20, 
+        alpha = 4, 
+        gamma = 0.7)
+    })
+  
+})
 
-
-# Run thermal preference for each year
-hires_list <- unstack(temp_coasts) %>% setNames(names(temp_coasts))
-bsb_prefs <- imap(hires_list, make_pref_ras, p1 = 18, p2 = 25, alpha = 1, gamma = 1)
-
-```
-
-### Sea Bass 1990's
-
-```{r}
-plot(bsb_prefs$X1990s, 
-     main = "1990's Black Sea Bass Thermal Preference", 
-     col = terrain.colors(14, rev = T), 
-     xlim = c(-78, -63), 
-     ylim = c(35.5,46))
-
-
-ggplot() +
-  geom_stars(data = st_as_stars(bsb_prefs$X1990s)) +
-  geom_sf(data = new_england, fill = "gray90", linewidth = .25) +
-    geom_sf(data = canada, fill = "gray90", linewidth = .25) +
-    geom_sf(data = greenland, fill = "gray90", linewidth = .25) +
-  scale_fill_distiller(
-    palette = "YlGnBu", 
-    na.value = "transparent", 
-    limit = c(0, 1), 
-    direction = 1,
-    oob = scales::oob_censor,
-    breaks = c(0.15, 0.85), 
-    labels = c("Not Suitable", "Preferred")) +
-    map_theme(
-      title = element_text(hjust = 0.5, size = 8),
-      axis.text = element_text(size = 6),
-      legend.position = "bottom") +
-    coord_sf(xlim = c(-75.5, -64), 
-             ylim = c(38, 45), 
-             expand = F) +
-    guides("fill" = guide_colorbar(
-      title = "Temperature Preference",
-      title.position = "top",
-      title.hjust = 0.5,
-      barwidth = unit(3.5, "in"),
-      frame.colour = "black",
-      ticks.colour = "black")) +
-    labs(title = "Black Sea Bass Habitat\n1990's")
-```
-
-### Sea Bass 2000's
-
-```{r}
-
-plot(bsb_prefs$X2000s, 
-     main = "2000's Black Sea Bass Thermal Preference", 
-     col = terrain.colors(14, rev = T), 
-     xlim = c(-78, -63), 
-     ylim = c(35.5,46))
-```
-
-
-### Sea Bass 2010's
-
-```{r}
-# plot(bsb_prefs$X2010s, 
-#      main = "2010's Black Sea Bass Thermal Preference", 
-#      col = terrain.colors(14, rev = T), 
-#      xlim = c(-78, -63), 
-#      ylim = c(35.5,46))
-
-
-ggplot() +
-  geom_stars(data = st_as_stars(bsb_prefs$X2010s)) +
-  geom_sf(data = new_england, fill = "gray90", linewidth = .25) +
-    geom_sf(data = canada, fill = "gray90", linewidth = .25) +
-    geom_sf(data = greenland, fill = "gray90", linewidth = .25) +
-  scale_fill_distiller(
-    palette = "YlGnBu", 
-    na.value = "transparent", 
-    limit = c(0, 1), 
-    direction = 1,
-    oob = scales::oob_censor,
-    breaks = c(0.15, 0.85), 
-    labels = c("Not Suitable", "Preferred")) +
-    map_theme(
-      title = element_text(hjust = 0.5, size = 8),
-      axis.text = element_text(size = 6),
-      legend.position = "bottom") +
-    coord_sf(xlim = c(-75.5, -64), 
-             ylim = c(38, 45), 
-             expand = F) +
-    guides("fill" = guide_colorbar(
-      title = "Temperature Preference",
-      title.position = "top",
-      title.hjust = 0.5,
-      barwidth = unit(3.5, "in"),
-      frame.colour = "black",
-      ticks.colour = "black")) +
-    labs(title = "Black Sea Bass Habitat\n2010's")
-```
-
-
-
-
-
- 
-## Lobster {.tabset .tabset-pills}
-
-Lobster have a thermal preference (lab venture) of 11-22C.
- 
- 
-```{r}
-# Use the betaFun(), feed it temperature vector min/max and curve shape
-lob_beta <- betaFun(
-  x = temp_range,
-        p1 = 11, 
-        p2 = 22, 
-        alpha = 1, 
-        gamma = 1)
-
-
-# Show the temp  preference
-plot(lob_beta ~ temp_range, type = "l", main = "Lobster\nFall Temperature Preference", ylab = "Preference", xlab = "Temperature Range")
-
-# Run thermal preference for each year
-lob_prefs <- imap(hires_list, make_pref_ras, p1 = 11, p2 = 22, alpha = 1, gamma = 1)
 
 ```
 
 ### Lobster 1990's
 
 ```{r}
-plot(lob_prefs$X1990s, 
-     main = "1990's Lobster Thermal Preference", 
-     col = terrain.colors(14, rev = T), 
-     xlim = c(-75.25, -60), 
-     ylim = c(37.5,48))
+#| eval: true
+
+
+sst_suit <- ggplot() +
+  geom_spatraster(
+    data = lob_prefs$avg_1990$sst) +
+  geom_spatraster_contour(
+    data = lob_prefs$avg_1990$sst, 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "1990's",
+    subtitle = "Surface Temperature Suitability",
+    fill = "Temperature Suitability")
+
+
+bt_suit <- ggplot() +
+  geom_spatraster(
+    data = lob_prefs$avg_1990$bt) +
+  geom_spatraster_contour(
+    data = lob_prefs$avg_1990$bt, 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "magma") +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "1990's",
+    subtitle = "Bottom Temperature Suitability",
+    fill = "Temperature Suitability")
+
+
+sst_suit | bt_suit
 ```
 
 ### Lobster 2000's
 
 ```{r}
+#| eval: true
 
-plot(lob_prefs$X2000s, 
-     main = "2000's Lobster Thermal Preference", 
-     col = terrain.colors(14, rev = T), 
-     xlim = c(-75.25, -60), 
-     ylim = c(37.5,48))
+# Map of SST
+sst_suit <- ggplot() +
+  geom_spatraster(
+    data = lob_prefs$avg_2000$sst) +
+  geom_spatraster_contour(
+    data = lob_prefs$avg_2000$sst, 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "2000's",
+    subtitle = "Surface Temperature Suitability",
+    fill = "Temperature Suitability")
+
+
+bt_suit <- ggplot() +
+  geom_spatraster(
+    data = lob_prefs$avg_2000$bt) +
+  geom_spatraster_contour(
+    data = lob_prefs$avg_2000$bt, 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "magma") +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "2000's",
+    subtitle = "Bottom Temperature Suitability",
+    fill = "Temperature Suitability")
+
+
+sst_suit | bt_suit
 ```
 
 
 ### Lobster 2010's
 
 ```{r}
-# plot(lob_prefs$X2010s, 
-#      main = "2010's Lobster Thermal Preference", 
-#      col = terrain.colors(14, rev = T), 
-#      xlim = c(-75.25, -60), 
-#      ylim = c(37.5,48))
+#| eval: true
+
+# Map of SST
+sst_suit <- ggplot() +
+  geom_spatraster(
+    data = lob_prefs$avg_2010$sst) +
+  geom_spatraster_contour(
+    data = lob_prefs$avg_2010$sst, 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "2010's",
+    subtitle = "Surface Temperature Suitability",
+    fill = "Temperature Suitability")
+
+
+bt_suit <- ggplot() +
+  geom_spatraster(
+    data = lob_prefs$avg_2010$bt) +
+  geom_spatraster_contour(
+    data = lob_prefs$avg_2010$bt, 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "magma") +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "2010's",
+    subtitle = "Bottom Temperature Suitability",
+    fill = "Temperature Suitability")
+
+
+sst_suit | bt_suit
+
+```
+
+:::
+
+# 2023 Thermal Preference Window
+
+We can get a little more granular and apply that thermal preference window to monthly data. Below I've used 2023 as an example. This could also be done with daily data.
+
+
+```{r}
+
+# Apply the activity logistic function
+bot_suitability <- map(
+  .x = setNames(names(bt), names(bt)),
+  function(x){
+      pref_ras <- make_pref_ras(
+        in_ras = bt, 
+        ras_name =  x, 
+        p1 = 0, 
+        p2 = 20, 
+        alpha = 4, 
+        gamma = 0.7)
+      
+      # Mask depths below our downloaded depth limit
+      pref_ras[over_depths] <- NA
+      return(pref_ras)
+      
+      
+    })
+
+```
+
+::: panel-tabset
+
+
+### 2023, May
+
+```{r}
 
 
 ggplot() +
-  geom_stars(data = st_as_stars(lob_prefs$X2010s)) +
-  geom_sf(data = new_england, fill = "gray90", linewidth = .25) +
-    geom_sf(data = canada, fill = "gray90", linewidth = .25) +
-    geom_sf(data = greenland, fill = "gray90", linewidth = .25) +
-  scale_fill_distiller(
-    palette = "YlGnBu", 
-    na.value = "transparent", 
-    limit = c(0, 1), 
-    direction = 1,
-    oob = scales::oob_censor,
-    breaks = c(0.15, 0.85), 
-    labels = c("Not Suitable", "Preferred")) +
-    map_theme(
-      title = element_text(hjust = 0.5, size = 8),
-      axis.text = element_text(size = 6),
-      legend.position = "bottom") +
-    coord_sf(xlim = c(-75.5, -64), 
-             ylim = c(38, 45), 
-             expand = F) +
-    guides("fill" = guide_colorbar(
-      title = "Temperature Preference",
-      title.position = "top",
-      title.hjust = 0.5,
-      barwidth = unit(3.5, "in"),
-      frame.colour = "black",
-      ticks.colour = "black")) +
-    labs(title = "Lobster Thermal Habitat\n2010's")
+  geom_spatraster(
+    data = bot_suitability[["2023-05-31"]]) +
+  geom_spatraster_contour(
+    data = bot_suitability[["2023-05-31"]], 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "May 2023, Lobster Temperature Suitability",
+    subtitle = "Lobster Suitability Range of 10-20C",
+    fill = "Temperature Suitability")
+
 ```
 
-## Both Species {.tabset .tabset-pills}
 
-### 1990's Both
+### 2023, June
 
 ```{r}
-# Leaflet Versions
-library(leaflet)
-library(leaflet.extras)
-library(htmltools)
-
-
-# Lobster Preference
-r <- lob_prefs$X1990s
-# BSB Preference
-r2 <- bsb_prefs$X1990s
-
-
-r[r<0.1] <- NA
-pal <- colorNumeric(
-  #rev(c("#0C2C84", "#41B6C4", "#FFFFCC")),
-  #palette = "PuRd",
-  palette = "Reds",
-  values(r),
-  na.color = "transparent")
-
-
-r2[r2<0.1] <- NA
-pal2 <- colorNumeric(
-  palette = "Greens",
-  #c("#0C2C84", "#41B6C4", "#FFFFCC"), 
-  values(r2),
-  na.color = "transparent")
-
-
-# Make a map
-leaflet(options = leafletOptions(zoomControl = FALSE)) %>% 
-  addProviderTiles('Esri.WorldImagery') %>% 
-  setView(-68.4, 42, zoom = 6) %>% 
-  addRasterImage(
-    r, 
-    colors = pal, 
-    opacity = 0.7) %>%
-  addRasterImage(
-    r2,
-    colors = pal2,
-    opacity = 0.7) %>% 
-  addLabelOnlyMarkers(
-    lng = -68.8, 
-    lat = 43.1, 
-    label = "Lobster Thermal Habitat", 
-    labelOptions = labelOptions(
-      noHide = T, 
-      style = list(
-        "color" = "gray50",
-        "font-family" = "serif",
-        "font-style" = "bold",
-        "font-size" = "12px"))) %>% 
-  addLabelOnlyMarkers(
-    lng = -72.5, 
-    lat = 39.6, 
-    label = "Black Sea Bass Thermal Habitat", 
-    labelOptions = labelOptions(
-      noHide = T, 
-      style = list(
-        "color" = "gray50",
-        "font-family" = "serif",
-        "font-style" = "bold",
-        "font-size" = "12px"))) 
+ggplot() +
+  geom_spatraster(
+    data = bot_suitability[["2023-06-30"]]) +
+  geom_spatraster_contour(
+    data = bot_suitability[["2023-06-30"]], 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "June 2023, Lobster Temperature Suitability",
+    subtitle = "Lobster Suitability Range of 10-20C",
+    fill = "Temperature Suitability")
 ```
 
-
-### 2010's Both
+### 2023, July
 
 ```{r}
+ggplot() +
+  geom_spatraster(
+    data = bot_suitability[["2023-07-31"]]) +
+  geom_spatraster_contour(
+    data = bot_suitability[["2023-07-31"]], 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "July 2023, Lobster Temperature Suitability",
+    subtitle = "Lobster Suitability Range of 10-20C",
+    fill = "Temperature Suitability")
 
-# Lobster Preference
-r <- lob_prefs$X2010s
-# BSB Preference
-r2 <- bsb_prefs$X2010s
-
-
-r[r<0.1] <- NA
-pal <- colorNumeric(
-  #rev(c("#0C2C84", "#41B6C4", "#FFFFCC")),
-  #palette = "PuRd",
-  palette = "Reds",
-  values(r),
-  na.color = "transparent")
-
-
-r2[r2<0.1] <- NA
-pal2 <- colorNumeric(
-  palette = "Greens",
-  #c("#0C2C84", "#41B6C4", "#FFFFCC"), 
-  values(r2),
-  na.color = "transparent")
-
-
-# Make a map
-leaflet(options = leafletOptions(zoomControl = FALSE)) %>% 
-  addProviderTiles('Esri.WorldImagery') %>% 
-  setView(-68.4, 42, zoom = 6) %>% 
-  addRasterImage(
-    r, 
-    colors = pal, 
-    opacity = 0.7) %>%
-  addRasterImage(
-    r2,
-    colors = pal2,
-    opacity = 0.7) %>% 
-  addLabelOnlyMarkers(
-    lng = -68.8, 
-    lat = 43.1, 
-    label = "Lobster Thermal Habitat", 
-    labelOptions = labelOptions(
-      noHide = T, 
-      style = list(
-        "color" = "gray50",
-        "font-family" = "serif",
-        "font-style" = "bold",
-        "font-size" = "12px"))) %>% 
-  addLabelOnlyMarkers(
-    lng = -72.5, 
-    lat = 39.6, 
-    label = "Black Sea Bass Thermal Habitat", 
-    labelOptions = labelOptions(
-      noHide = T, 
-      style = list(
-        "color" = "gray50",
-        "font-family" = "serif",
-        "font-style" = "bold",
-        "font-size" = "12px"))) 
 ```
 
- 
-## Global Warming Rates
+
+### 2023, August
+
+```{r}
+ggplot() +
+  geom_spatraster(
+    data = bot_suitability[["2023-08-31"]]) +
+  geom_spatraster_contour(
+    data = bot_suitability[["2023-08-31"]], 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "August 2023, Lobster Temperature Suitability",
+    subtitle = "Lobster Suitability Range of 10-20C",
+    fill = "Temperature Suitability")
+
+```
+
+:::
+
+# 2023 Lobster Active Season
+
+Lobsters are thought to be relatively inactive below 10C. If we use this threshold we can map how activity appears spatially.
+
+Use a logistic function centered on 10C, we can get a sense of how active lobsters are likely to be based on  monthly bottom temperatures. 
+
+This could be adapted down the line to mark when* certain areas had their growing seasons begin and possibly some insight into their movements inshore/offshore.
+
+For the below maps I am applying this logistic function to monthly bottom temperatures:
+
+```{r}
+#| fig-height: 4
+
+# Use the logisticFun(), feed it temperature vector min/max
+lob_activity <- logisticFun(x = temp_range, alpha = -2, beta = 10)
+plot(lob_activity ~ temp_range, type = "l", 
+     main = "Lobster Minimum-Active Temperature", 
+     ylab = "Activity Level", xlab = expression("Temperature"~degree~C))
+
+
+```
+
+
 
 
 ```{r}
-# Load warming rates
-annual_rates <- raster::stack(str_c(oisst_path, "warming_rates/annual_warming_rates1982to2021.nc"),
-                              varname  = "annual_warming_rate")
+#| label: active season logistic fun
+
+# Function to make preference rasters:
+logistic_pref_ras <- function(in_ras, ras_name, alpha = -2, beta = 10){
+  
+  # Make a new raster that we can swap values from  
+  pref_ras <- in_ras[[ras_name]]
+
+  # Assign values based on preference curve
+  values(pref_ras) <- logisticFun(
+    values(pref_ras),
+    alpha = alpha, 
+    beta = beta)
+  
+  return(pref_ras)
+
+  
+}
 
 
-# Plot Rates
-plot(rotate(annual_rates), 
-     main = "Annual Warming Rate | 1982-2021", 
-     col = terrain.colors(14))
+
+
+
+# Apply the activity logistic function
+lob_bot_activity <- map(
+  .x = setNames(names(bt), names(bt)),
+  function(x){
+      active_ras <- logistic_pref_ras(
+        in_ras = bt, 
+        ras_name =  x, 
+        alpha = -2, 
+        beta = 10)
+      
+      # Mask depths below our downloaded depth limit
+      active_ras[over_depths] <- NA
+      return(active_ras)
+      
+      
+    })
+  
+
 
 ```
 
-## Local Rates
+::: panel-tabset
+
+
+### 2023, May
 
 ```{r}
-# # Crop to local area:
-rates_gom <- mask_nc(ras_obj = annual_rates, mask_shape = crop_extent, rotate = T)
 
-# Mask that region
-rates_gom <- mask(rates_gom, lakes_cover, inverse = TRUE)
 
-# Resample to higher resolution
-rates_hires <- raster::resample(rates_gom, s)
+ggplot() +
+  geom_spatraster(data = lob_bot_activity[["2023-05-31"]]) +
+  geom_spatraster_contour(data = lob_bot_activity[["2023-05-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "May 2023, Lobster Activity",
+    subtitle = "Lobster Activity Beginning at Temps Above 10C",
+    fill = "Lobster Activity Level")
 
-# Plot Rates
-plot(rates_hires, 
-     main = "Annual Warming Rate | 1982-2021", 
-     col = terrain.colors(14))
+```
 
+
+### 2023, June
+
+```{r}
+ggplot() +
+  geom_spatraster(
+    data = lob_bot_activity[["2023-06-30"]]) +
+  geom_spatraster_contour(
+    data = lob_bot_activity[["2023-06-30"]], 
+    breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "June 2023, Lobster Activity",
+    subtitle = "Lobster Activity Beginning at Temps Above 10C",
+    fill = "Lobster Activity Level")
+```
+
+### 2023, July
+
+```{r}
+ggplot() +
+  geom_spatraster(data = lob_bot_activity[["2023-07-31"]]) +
+  geom_spatraster_contour(data = lob_bot_activity[["2023-07-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "July 2023, Lobster Activity",
+    subtitle = "Lobster Activity Beginning at Temps Above 10C",
+    fill = "Lobster Activity Level")
+
+```
+
+
+### 2023, August
+
+```{r}
+ggplot() +
+  geom_spatraster(data = lob_bot_activity[["2023-08-31"]]) +
+  geom_spatraster_contour(data = lob_bot_activity[["2023-08-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "August 2023, Lobster Activity",
+    subtitle = "Lobster Activity Beginning at Temps Above 10C",
+    fill = "Lobster Activity Level")
+
+```
+
+:::
+
+# 2023 Lobster Thermal Stress Maps
+
+Lobsters are also thought to experience stress when under temperatures above 20C. At temperatures at or near these levels lobsters are likely to attempt to avoid these unfavorable conditions. 
+
+We can flip the logistic function and re-center it at/above 20C to then get a sense of where bottom temperatures may be too high. 
+
+For the below maps I am applying this logistic function to monthly bottom temperatures:
+
+```{r}
+#| fig-height: 4
+
+# Use the logisticFun(), feed it temperature vector min/max
+lob_activity <- logisticFun(x = temp_range, alpha = -2, beta = 21)
+plot(lob_activity ~ temp_range, type = "l", 
+     main = "Lobster Thermal Stress Limit", 
+     ylab = "Stress Level", xlab = expression("Temperature"~degree~C))
 
 
 ```
 
+
+
+
+```{r}
+#| label: Thermal stressmonthly
+
+
+
+
+
+# Apply the activity logistic function
+lob_bot_stress <- map(
+  .x = setNames(names(bt), names(bt)),
+  function(x){
+      active_ras <- logistic_pref_ras(
+        in_ras = bt, 
+        ras_name =  x, 
+        alpha = -2, 
+        beta = 21)
+      
+      # Mask depths below our downloaded depth limit
+      active_ras[over_depths] <- NA
+      return(active_ras)
+      
+      
+    })
+  
+
+
+```
+
+
+::: panel-tabset
+
+
+### 2023, May
+
+```{r}
+
+ggplot() +
+  geom_spatraster(data = lob_bot_stress[["2023-05-31"]]) +
+  geom_spatraster_contour(data = lob_bot_stress[["2023-05-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "plasma") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "May 2023, Thermal Stress Areas",
+    subtitle = "Thermal Stress Beginning at Temps Above 20C",
+    fill = "Stress Level")
+
+```
+
+
+### 2023, June
+
+```{r}
+ggplot() +
+  geom_spatraster(
+    data = lob_bot_stress[["2023-06-30"]]) +
+  geom_spatraster_contour(
+    data = lob_bot_stress[["2023-06-30"]], 
+    breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "plasma") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "June 2023, Thermal Stress Areas",
+    subtitle = "Thermal Stress Beginning at Temps Above 20C",
+    fill = "Stress Level")
+```
+
+### 2023, July
+
+```{r}
+ggplot() +
+  geom_spatraster(data = lob_bot_stress[["2023-07-31"]]) +
+  geom_spatraster_contour(data = lob_bot_stress[["2023-07-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "plasma") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "July 2023, Thermal Stress Areas",
+    subtitle = "Thermal Stress Beginning at Temps Above 20C",
+    fill = "Stress Level")
+
+```
+
+
+### 2023, August
+
+```{r}
+ggplot() +
+  geom_spatraster(data = lob_bot_stress[["2023-08-31"]]) +
+  geom_spatraster_contour(data = lob_bot_stress[["2023-08-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "plasma") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "August 2023, Thermal Stress Areas",
+    subtitle = "Thermal Stress Beginning at Temps Above 20C",
+    fill = "Stress Level")
+
+```
+
+
+:::
+
+# 2024 Lobster Habitat Suitability
+
+Repeat the above process looking at leading/trailing edge dynamics and timing of preferred temperatures
 
