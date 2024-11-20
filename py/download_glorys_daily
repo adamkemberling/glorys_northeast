@@ -74,8 +74,8 @@ for yr in years:
 
 # Now Download the remaining dates from the interim dataset
 # Load some years
-years = np.arange(2021, 2022)
-months = np.arange(7,13)
+years = np.arange(2024, 2025)
+months = np.arange(1,13)
 months = [f"{mnth:02}" for mnth in months]
 
 # Loop through them all

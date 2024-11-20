@@ -512,10 +512,11 @@ plot(
 ```
 
 
+
  
 ## Decadal Preference Maps 
 
-Lobster have a thermal preference (lab venture) of 11-22C.
+Lobster have a thermal preference (lab venture) of 11-22C. The following maps display what the decadal average temperatures look like with respect to the preference curve above.
  
 ::: panel-tabset
 
@@ -754,10 +755,11 @@ sst_suit | bt_suit
 
 :::
 
-# 2023 Thermal Preference Window
+# Monthly Thermal Preference Window
 
 We can get a little more granular and apply that thermal preference window to monthly data. Below I've used 2023 as an example. This could also be done with daily data.
 
+The following maps explore how different the thermal habitats for lobster can be from year-to-year by contrasting 2023 & 2024.
 
 ```{r}
 
@@ -785,12 +787,12 @@ bot_suitability <- map(
 ::: panel-tabset
 
 
-### 2023, May
+### May
 
 ```{r}
 
 
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(
     data = bot_suitability[["2023-05-31"]]) +
   geom_spatraster_contour(
@@ -810,17 +812,43 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "May 2023, Lobster Temperature Suitability",
+    title = "Lobster Temperature Suitability\nMay 2023",
     subtitle = "Lobster Suitability Range of 10-20C",
     fill = "Temperature Suitability")
+
+map_24 <- ggplot() +
+  geom_spatraster(
+    data = bot_suitability[["2024-05-31"]]) +
+  geom_spatraster_contour(
+    data = bot_suitability[["2024-05-31"]], 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nMay 2024",
+    subtitle = "",
+    fill = "Temperature Suitability")
+
+map_23 | map_24
 
 ```
 
 
-### 2023, June
+### June
 
 ```{r}
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(
     data = bot_suitability[["2023-06-30"]]) +
   geom_spatraster_contour(
@@ -840,15 +868,41 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "June 2023, Lobster Temperature Suitability",
+    title = "Lobster Temperature Suitability\nJune 2023",
     subtitle = "Lobster Suitability Range of 10-20C",
     fill = "Temperature Suitability")
+
+map_24 <- ggplot() +
+  geom_spatraster(
+    data = bot_suitability[["2024-06-30"]]) +
+  geom_spatraster_contour(
+    data = bot_suitability[["2024-06-30"]], 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nJune 2024",
+    subtitle = "",
+    fill = "Temperature Suitability")
+
+map_23 | map_24
 ```
 
-### 2023, July
+### July
 
 ```{r}
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(
     data = bot_suitability[["2023-07-31"]]) +
   geom_spatraster_contour(
@@ -868,17 +922,43 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "July 2023, Lobster Temperature Suitability",
+    title = "Lobster Temperature Suitability\nJuly 2023",
     subtitle = "Lobster Suitability Range of 10-20C",
     fill = "Temperature Suitability")
+
+map_24 <- ggplot() +
+  geom_spatraster(
+    data = bot_suitability[["2024-07-31"]]) +
+  geom_spatraster_contour(
+    data = bot_suitability[["2024-07-31"]], 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nJuly 2024",
+    subtitle = "",
+    fill = "Temperature Suitability")
+
+map_23 | map_24
 
 ```
 
 
-### 2023, August
+### August
 
 ```{r}
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(
     data = bot_suitability[["2023-08-31"]]) +
   geom_spatraster_contour(
@@ -898,15 +978,41 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "August 2023, Lobster Temperature Suitability",
+    title = "Lobster Temperature Suitability\nAugust 2023",
     subtitle = "Lobster Suitability Range of 10-20C",
     fill = "Temperature Suitability")
+
+map_24 <- ggplot() +
+  geom_spatraster(
+    data = bot_suitability[["2024-08-31"]]) +
+  geom_spatraster_contour(
+    data = bot_suitability[["2024-08-31"]], 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nAugust 2024",
+    subtitle = "",
+    fill = "Temperature Suitability")
+
+map_23 | map_24
 
 ```
 
 :::
 
-# 2023 Lobster Active Season
+# Monthly Lobster Activity Level
 
 Lobsters are thought to be relatively inactive below 10C. If we use this threshold we can map how activity appears spatially.
 
@@ -979,18 +1085,19 @@ lob_bot_activity <- map(
 ::: panel-tabset
 
 
-### 2023, May
+### May
 
 ```{r}
 
 
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(data = lob_bot_activity[["2023-05-31"]]) +
   geom_spatraster_contour(data = lob_bot_activity[["2023-05-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_viridis_c(
     breaks = seq(0,1, .2),
+    labels = label_percent(),
     na.value = "gray60") +
   coord_sf(
     xlim = c(-75, -65), 
@@ -1001,17 +1108,42 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "May 2023, Lobster Activity",
+    title = "Lobster Activity\nMay 2023",
     subtitle = "Lobster Activity Beginning at Temps Above 10C",
     fill = "Lobster Activity Level")
+
+map_24 <- ggplot() +
+  geom_spatraster(data = lob_bot_activity[["2024-05-31"]]) +
+  geom_spatraster_contour(data = lob_bot_activity[["2024-05-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    labels = label_percent(),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nMay 2024",
+    subtitle = "",
+    fill = "Lobster Activity Level")
+
+
+(map_23 | map_24) + plot_layout(guides = "collect")
 
 ```
 
 
-### 2023, June
+### June
 
 ```{r}
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(
     data = lob_bot_activity[["2023-06-30"]]) +
   geom_spatraster_contour(
@@ -1021,6 +1153,7 @@ ggplot() +
   geom_sf(data = canada) +
   scale_fill_viridis_c(
     breaks = seq(0,1, .2),
+    labels = label_percent(),
     na.value = "gray60") +
   coord_sf(
     xlim = c(-75, -65), 
@@ -1031,21 +1164,47 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "June 2023, Lobster Activity",
+    title = "Lobster Activity\nJune 2023",
     subtitle = "Lobster Activity Beginning at Temps Above 10C",
     fill = "Lobster Activity Level")
+
+map_24 <- ggplot() +
+  geom_spatraster(data = lob_bot_activity[["2024-06-30"]]) +
+  geom_spatraster_contour(data = lob_bot_activity[["2024-06-30"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    labels = label_percent(),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nJune 2024",
+    subtitle = "",
+    fill = "Lobster Activity Level")
+
+
+(map_23 | map_24) + plot_layout(guides = "collect")
 ```
 
-### 2023, July
+### July
 
 ```{r}
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(data = lob_bot_activity[["2023-07-31"]]) +
   geom_spatraster_contour(data = lob_bot_activity[["2023-07-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_viridis_c(
     breaks = seq(0,1, .2),
+    labels = label_percent(),
     na.value = "gray60") +
   coord_sf(
     xlim = c(-75, -65), 
@@ -1056,23 +1215,49 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "July 2023, Lobster Activity",
+    title = "Lobster Activity\nJuly 2023",
     subtitle = "Lobster Activity Beginning at Temps Above 10C",
     fill = "Lobster Activity Level")
+
+map_24 <- ggplot() +
+  geom_spatraster(data = lob_bot_activity[["2024-07-31"]]) +
+  geom_spatraster_contour(data = lob_bot_activity[["2024-07-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    labels = label_percent(),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nJuly 2024",
+    subtitle = "",
+    fill = "Lobster Activity Level")
+
+
+(map_23 | map_24) + plot_layout(guides = "collect")
 
 ```
 
 
-### 2023, August
+### August
 
 ```{r}
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(data = lob_bot_activity[["2023-08-31"]]) +
   geom_spatraster_contour(data = lob_bot_activity[["2023-08-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_viridis_c(
     breaks = seq(0,1, .2),
+    labels = label_percent(),
     na.value = "gray60") +
   coord_sf(
     xlim = c(-75, -65), 
@@ -1083,15 +1268,40 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "August 2023, Lobster Activity",
+    title = "Lobster Activity\nAugust 2023",
     subtitle = "Lobster Activity Beginning at Temps Above 10C",
     fill = "Lobster Activity Level")
+
+map_24 <- ggplot() +
+  geom_spatraster(data = lob_bot_activity[["2024-08-31"]]) +
+  geom_spatraster_contour(data = lob_bot_activity[["2024-08-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    labels = label_percent(),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nAugust 2024",
+    subtitle = "",
+    fill = "Lobster Activity Level")
+
+
+(map_23 | map_24) + plot_layout(guides = "collect")
 
 ```
 
 :::
 
-# 2023 Lobster Thermal Stress Maps
+# Monthly Lobster Thermal Stress Maps
 
 Lobsters are also thought to experience stress when under temperatures above 20C. At temperatures at or near these levels lobsters are likely to attempt to avoid these unfavorable conditions. 
 
@@ -1146,11 +1356,11 @@ lob_bot_stress <- map(
 ::: panel-tabset
 
 
-### 2023, May
+### May
 
 ```{r}
 
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(data = lob_bot_stress[["2023-05-31"]]) +
   geom_spatraster_contour(data = lob_bot_stress[["2023-05-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
   geom_sf(data = new_england) +
@@ -1168,17 +1378,41 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "May 2023, Thermal Stress Areas",
+    title = "Thermal Stress Areas\n",
     subtitle = "Thermal Stress Beginning at Temps Above 20C",
     fill = "Stress Level")
+
+map_24 <- ggplot() +
+  geom_spatraster(data = lob_bot_stress[["2024-05-31"]]) +
+  geom_spatraster_contour(data = lob_bot_stress[["2024-05-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "plasma") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nMay 2024",
+    subtitle = "",
+    fill = "Stress Level")
+
+(map_23 | map_24) + plot_layout(guides = "collect")
 
 ```
 
 
-### 2023, June
+### June
 
 ```{r}
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(
     data = lob_bot_stress[["2023-06-30"]]) +
   geom_spatraster_contour(
@@ -1198,16 +1432,40 @@ ggplot() +
     title.position = "top",
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
-  labs(
-    title = "June 2023, Thermal Stress Areas",
+ labs(
+    title = "Thermal Stress Areas\nJune 2023",
     subtitle = "Thermal Stress Beginning at Temps Above 20C",
     fill = "Stress Level")
+
+map_24 <- ggplot() +
+  geom_spatraster(data = lob_bot_stress[["2024-06-30"]]) +
+  geom_spatraster_contour(data = lob_bot_stress[["2024-06-30"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "plasma") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nJune 2024",
+    subtitle = "",
+    fill = "Stress Level")
+
+(map_23 | map_24) + plot_layout(guides = "collect")
 ```
 
 ### 2023, July
 
 ```{r}
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(data = lob_bot_stress[["2023-07-31"]]) +
   geom_spatraster_contour(data = lob_bot_stress[["2023-07-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
   geom_sf(data = new_england) +
@@ -1225,9 +1483,33 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "July 2023, Thermal Stress Areas",
+    title = "Thermal Stress Areas\nJuly 2023",
     subtitle = "Thermal Stress Beginning at Temps Above 20C",
     fill = "Stress Level")
+
+map_24 <- ggplot() +
+  geom_spatraster(data = lob_bot_stress[["2024-07-31"]]) +
+  geom_spatraster_contour(data = lob_bot_stress[["2024-07-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "plasma") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nJuly 2024",
+    subtitle = "",
+    fill = "Stress Level")
+
+(map_23 | map_24) + plot_layout(guides = "collect")
 
 ```
 
@@ -1235,7 +1517,7 @@ ggplot() +
 ### 2023, August
 
 ```{r}
-ggplot() +
+map_23 <- ggplot() +
   geom_spatraster(data = lob_bot_stress[["2023-08-31"]]) +
   geom_spatraster_contour(data = lob_bot_stress[["2023-08-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
   geom_sf(data = new_england) +
@@ -1253,16 +1535,35 @@ ggplot() +
     title.hjust = 0.5,
     barwidth = unit(4, "cm"))) +
   labs(
-    title = "August 2023, Thermal Stress Areas",
+    title = "Thermal Stress Areas\nAugust 2023",
     subtitle = "Thermal Stress Beginning at Temps Above 20C",
     fill = "Stress Level")
+
+map_24 <- ggplot() +
+  geom_spatraster(data = lob_bot_stress[["2024-08-31"]]) +
+  geom_spatraster_contour(data = lob_bot_stress[["2024-08-31"]], breaks = seq(0,1,.2), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60",
+    option = "plasma") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(
+    title.position = "top",
+    title.hjust = 0.5,
+    barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nAugust 2024",
+    subtitle = "",
+    fill = "Stress Level")
+
+(map_23 | map_24) + plot_layout(guides = "collect")
 
 ```
 
 
 :::
-
-# 2024 Lobster Habitat Suitability
-
-Repeat the above process looking at leading/trailing edge dynamics and timing of preferred temperatures
-
