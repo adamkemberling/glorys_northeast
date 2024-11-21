@@ -453,18 +453,16 @@ Anomaly values below are the departure from the 1993-2022 long-term average for 
 
 ::: panel-tabset
 
-### 1990's
+### SST
 
 ```{r}
-
-
 # Surface Temperature
 sst_90 <- ggplot() +
   geom_spatraster(data = temp_decades$avg_1990$sst) +
-  geom_spatraster_contour(
+  geom_spatraster_contour_text(
     data = temp_decades$avg_1990$sst, 
-    breaks = seq(5,30,5),
-    color = "lightgray") +
+    breaks = seq(5, 30, 5),
+    color = "white") +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_viridis_c(limits = c(5,27)) +
@@ -474,70 +472,17 @@ sst_90 <- ggplot() +
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "Surface Temperature",
-       fill = "Temperature")
-  
-# Bottom Temperature
-bt_90 <- ggplot() +
-  geom_spatraster(data = temp_decades$avg_1990$bt) +
-  geom_spatraster_contour(data = temp_decades$avg_1990$bt, breaks = c(10), color = "White") +
-  geom_sf(data = new_england) +
-  geom_sf(data = canada) +
-  scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
-  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
-  theme(panel.grid.major = element_line(color = "gray90")) +
-  coord_sf(
-    xlim = c(-75.8, -65), 
-    ylim = c(36, 45.2), 
-    expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "Bottom Temperature",
+  labs(title = "1990's",
        fill = "Temperature")
 
-
-# Surface Temperature Anomaly
-sst_anom_90 <- ggplot() +
-  geom_spatraster(data = temp_decades$avg_1990$sst_anom) +
-  geom_sf(data = new_england) +
-  geom_sf(data = canada) +
-  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
-  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
-  theme(panel.grid.major = element_line(color = "gray90")) +
-  coord_sf(
-    xlim = c(-75.8, -65), 
-    ylim = c(36, 45.2), 
-    expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "SST Anomaly",
-       fill = "Temperature Anomaly")
-  
-# Bottom Temperature Anomlay
-bt_anom_90 <- ggplot() +
-  geom_spatraster(data = temp_decades$avg_1990$bt_anom) +
-  geom_sf(data = new_england) +
-  geom_sf(data = canada) +
-  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
-  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
-  theme(panel.grid.major = element_line(color = "gray90")) +
-  coord_sf(
-    xlim = c(-75.8, -65), 
-    ylim = c(36, 45.2), 
-    expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "BT Anomaly",
-       fill = "Temperature Anomaly")
-
-# Combine
-(sst_90 | bt_90) /
-  ((sst_anom_90 | bt_anom_90) + plot_layout(guides = "collect")) +
-  plot_annotation(title = "1990's Average") & theme(plot.margin = margin(1,1,1,1))
- 
-```
-
-### 2000's
-
-```{r}
 
 # Surface Temperature
 sst_20s <- ggplot() +
   geom_spatraster(data = temp_decades$avg_2000$sst) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_2000$sst, 
+    breaks = seq(5, 30, 5),
+    color = "white") +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_viridis_c(limits = c(5,27)) +
@@ -547,69 +492,18 @@ sst_20s <- ggplot() +
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "Surface Temperature",
+  labs(title = "2000's",
        fill = "Temperature")
   
-# Bottom Temperature
-bt_20s <- ggplot() +
-  geom_spatraster(data = temp_decades$avg_2000$bt) +
-  geom_spatraster_contour(data = temp_decades$avg_2000$bt, breaks = c(10), color = "White") +
-  geom_sf(data = new_england) +
-  geom_sf(data = canada) +
-  scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
-  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
-  theme(panel.grid.major = element_line(color = "gray90")) +
-  coord_sf(
-    xlim = c(-75.8, -65), 
-    ylim = c(36, 45.2), 
-    expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "Bottom Temperature",
-       fill = "Temperature")
 
-
-# Surface Temperature Anomaly
-sst_anom_20s <- ggplot() +
-  geom_spatraster(data = temp_decades$avg_2000$sst_anom) +
-  geom_sf(data = new_england) +
-  geom_sf(data = canada) +
-  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
-  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
-  theme(panel.grid.major = element_line(color = "gray90")) +
-  coord_sf(
-    xlim = c(-75.8, -65), 
-    ylim = c(36, 45.2), 
-    expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "SST Anomaly",
-       fill = "Temperature Anomaly")
-  
-# Bottom Temperature Anomlay
-bt_anom_20s <- ggplot() +
-  geom_spatraster(data = temp_decades$avg_2000$bt_anom) +
-  geom_sf(data = new_england) +
-  geom_sf(data = canada) +
-  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
-  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
-  theme(panel.grid.major = element_line(color = "gray90")) +
-  coord_sf(
-    xlim = c(-75.8, -65), 
-    ylim = c(36, 45.2), 
-    expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "BT Anomaly",
-       fill = "Temperature Anomaly")
-
-# Combine
-(sst_20s | bt_20s) /
-  ((sst_anom_20s | bt_anom_20s) + plot_layout(guides = "collect")) +
-  plot_annotation(title = "2000's Average")  & theme(plot.margin = margin(1,1,1,1))
-```
-
-### 2010's
-
-```{r}
 
 # Surface Temperature
 sst_21s <- ggplot() +
   geom_spatraster(data = temp_decades$avg_2010$sst) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_2010$sst, 
+    breaks = seq(5, 30, 5),
+    color = "white") +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_viridis_c(limits = c(5,27)) +
@@ -619,29 +513,28 @@ sst_21s <- ggplot() +
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "Surface Temperature",
+  labs(title = "2010's",
        fill = "Temperature")
   
-# Bottom Temperature
-bt_21s <- ggplot() +
-  geom_spatraster(data = temp_decades$avg_2010$bt) +
-  geom_spatraster_contour(data = temp_decades$avg_2000$bt, breaks = c(10), color = "White") +
-  geom_sf(data = new_england) +
-  geom_sf(data = canada) +
-  scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
-  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
-  theme(panel.grid.major = element_line(color = "gray90")) +
-  coord_sf(
-    xlim = c(-75.8, -65), 
-    ylim = c(36, 45.2), 
-    expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "Bottom Temperature",
-       fill = "Temperature")
+
+(sst_90 | sst_20s | sst_21s) + plot_layout(guides = "collect") & guides(fill = guide_colorbar(barwidth = unit(6, "cm"))) 
 
 
+```
+
+
+### SST Anomalies
+
+```{r}
+ 
 # Surface Temperature Anomaly
-sst_anom_21s <- ggplot() +
-  geom_spatraster(data = temp_decades$avg_2010$sst_anom) +
+sst_anom_90 <- ggplot() +
+  geom_spatraster(
+    data = temp_decades$avg_1990$sst_anom) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_1990$sst_anom,
+    breaks = seq(-3,3,0.5),
+    color = "gray40") +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
@@ -651,12 +544,137 @@ sst_anom_21s <- ggplot() +
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "SST Anomaly",
+  labs(title = "1990's",
+       fill = "Temperature Anomaly")
+
+
+# Surface Temperature Anomaly
+sst_anom_20s <- ggplot() +
+  geom_spatraster(
+    data = temp_decades$avg_2000$sst_anom) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_2000$sst_anom,
+    breaks = seq(-3,3,0.5),
+    color = "gray40") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(title = "2000's",
        fill = "Temperature Anomaly")
   
+
+# Surface Temperature Anomaly
+sst_anom_21s <- ggplot() +
+  geom_spatraster(
+    data = temp_decades$avg_2010$sst_anom) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_2010$sst_anom,
+    breaks = seq(-3,3,0.5),
+    color = "gray40") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(title = "2010's",
+       fill = "Temperature Anomaly")
+  
+
+(sst_anom_90 | sst_anom_20s | sst_anom_21s) + plot_layout(guides = "collect") & guides(fill = guide_colorbar(barwidth = unit(6, "cm"))) 
+
+```
+
+
+### BT
+
+```{r}
+# Bottom Temperature
+bt_90 <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_1990$bt) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_1990$bt, 
+    breaks = seq(5, 30, 5),
+    color = "white") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(title = "1990's",
+       fill = "Temperature")
+
+
+# Bottom Temperature
+bt_20s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2000$bt) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_2000$bt, 
+    breaks = seq(5, 30, 5),
+    color = "white") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(title = "2000's",
+       fill = "Temperature")
+
+# Bottom Temperature
+bt_21s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2010$bt) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_2010$bt, 
+    breaks = seq(5, 30, 5),
+    color = "white") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(title = "2010's",
+       fill = "Temperature")
+
+
+
+(bt_90 | bt_20s | bt_21s) + plot_layout(guides = "collect") & guides(fill = guide_colorbar(barwidth = unit(6, "cm"))) 
+```
+
+### BT Anomalies
+
+```{r}
 # Bottom Temperature Anomlay
-bt_anom_21s <- ggplot() +
-  geom_spatraster(data = temp_decades$avg_2010$bt_anom) +
+bt_anom_90 <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_1990$bt_anom) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_1990$bt_anom,
+    breaks = seq(-3,3,0.5),
+    color = "gray60") +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_1990$bt_anom,
+    breaks = seq(-3,3,0.5),
+    color = "gray60") +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
@@ -666,14 +684,54 @@ bt_anom_21s <- ggplot() +
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  labs(subtitle = "BT Anomaly",
+  labs(title = "1990's",
        fill = "Temperature Anomaly")
 
-# Combine
-(sst_21s | bt_21s) /
-  ((sst_anom_21s | bt_anom_21s) + plot_layout(guides = "collect")) +
-  plot_annotation(title = "2010's Average")  & theme(plot.margin = margin(1,1,1,1))
+
+# Bottom Temperature Anomlay
+bt_anom_20s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2000$bt_anom) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_2000$bt_anom,
+    breaks = seq(-3,3,0.5),
+    color = "gray40") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(title = "2000's",
+       fill = "Temperature Anomaly")
+
+# Bottom Temperature Anomlay
+bt_anom_21s <- ggplot() +
+  geom_spatraster(data = temp_decades$avg_2010$bt_anom) +
+  geom_spatraster_contour_text(
+    data = temp_decades$avg_2010$bt_anom,
+    breaks = seq(-3,3,0.5),
+    color = "gray40") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(title = "2010's",
+       fill = "Temperature Anomaly")
+
+
+(bt_anom_90 | bt_anom_20s | bt_anom_21s) + plot_layout(guides = "collect") & guides(fill = guide_colorbar(barwidth = unit(6, "cm"))) 
 ```
+
+
+
 
 :::
  
@@ -1590,7 +1648,7 @@ map_24 <- ggplot() +
 (map_23 | map_24) + plot_layout(guides = "collect")
 ```
 
-### 2023, July
+### July
 
 ```{r}
 map_23 <- ggplot() +
@@ -1636,7 +1694,7 @@ map_24 <- ggplot() +
 ```
 
 
-### 2023, August
+### July
 
 ```{r}
 map_23 <- ggplot() +
