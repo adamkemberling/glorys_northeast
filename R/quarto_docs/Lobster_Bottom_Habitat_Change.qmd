@@ -47,6 +47,9 @@ theme_set(
     axis.text.y = element_text(size = 8),
     legend.position = "bottom") +
     theme(
+      legend.title = element_text(hjust = 0.5),
+      legend.frame = element_rect(color = "black", fill = "transparent", linewidth = 0.8),
+      legend.ticks = element_line(color = "black"),
       plot.background = element_rect(fill = "transparent", color = "Black"),
       panel.border = element_rect(fill = "transparent", color = "black", linewidth = 2), 
       legend.title.position = "top"
@@ -82,6 +85,42 @@ temp_pal <- rev(RColorBrewer::brewer.pal(n = 10, name = "RdBu"))
 
 new_england <- ne_states("united states of america", returnclass = "sf")
 canada <- ne_states("canada", returnclass = "sf")
+```
+
+
+```{r}
+#| label: style-config
+#| results: asis
+
+# Use GMRI style
+use_gmri_style_rmd()
+
+```
+
+```{r}
+#| label: fonts-config
+#| echo: false
+
+library(showtext)
+
+# Path to the directory containing the font file (replace with your actual path)
+font_dir <- paste0(system.file("stylesheets", package = "gmRi"), "/GMRI_fonts/Avenir/")
+
+# Register the font
+font_add(
+  family = "Avenir",
+  file.path(font_dir, "LTe50342.ttf"),
+  bold = file.path(font_dir, "LTe50340.ttf"),
+  italic = file.path(font_dir, "LTe50343.ttf"),
+  bolditalic = file.path(font_dir, "LTe50347.ttf"))
+
+
+# Why is the gt package able to add it wtf!!
+# google_font(name = "Avenir")
+
+# Load the font
+showtext::showtext_auto()
+
 ```
 
 
@@ -237,24 +276,176 @@ temp_decades <- purrr::map(decades, function(decade_yrs){
 ```
 
 
-### Gulf of Maine Bottom Temperature Timeseries
+
+## Decadal OISST
+
+OISSTv2 Data is an observational dataset and not a reanalysis model and should be true-to-life.
+
 
 ```{r}
-# 
-# # Whats our casco bay resolution again?
-# ggplot() +
-#   geom_spatraster(data = temp_decades$avg_1990$sst) +
-#   geom_sf(data = new_england) +
-#   geom_sf(data = canada) +
-#   scale_fill_viridis_c() +
-#   theme(panel.grid.major = element_line(color = "gray90")) +
-#   coord_sf(xlim = c(-70.4, -69), ylim = c(43.5, 44.2), expand = F, crs = st_crs(4269)) +
-#   labs(subtitle = "Surface Temperature",
-#        fill = "Temperature")
+#| label: load monthly oisst
+
+# Load OISSt Monthly Means
+sst_path <- cs_path("res", "OISST/oisst_mainstays/monthly_averages")
+
+# Load the monthly averages
+
+# Temperature and anomalies monthly
+sst_monthly <- terra::rast(
+  str_c(sst_path, "oisst_monthly.nc"))
+
+layer_names <- names(sst_monthly)
+both_indices <- which(str_detect(layer_names, "sst"))
+only_anoms <- which(str_detect(layer_names, "sst_anom"))
+
+# Subset the variables out separately by names
+`%notin%` <- negate(`%in%`)
+sst_indices <- both_indices[which(both_indices %notin% only_anoms)]
+
+# I hate terra
+sst_monthly <- sst_monthly[[sst_indices]]
+
+# Dates
+r_dates <- terra::time(sst_monthly)
+names(sst_monthly) <- r_dates
+
+# Decades
+decades <- list(
+  "avg_1990" = c(1990:1999),
+  "avg_2000" = c(2000:2009),
+  "avg_2010" = c(2010:2019)
+)
+
+
+# Get the mean temp for each decade
+sst_decades <- purrr::map(decades, function(decade_yrs){
+  
+  layer_indices <- which(lubridate::year(time(sst_monthly)) %in% decade_yrs)
+  
+  sst_mean <- terra::mean(sst_monthly[[layer_indices]], na.rm = T)
+  sst_mean <- terra::rotate(sst_mean)
+  sst_mean <- terra::crop(sst_mean, crop_extent)
+  decade_means <- sst_mean
+
+  return(decade_means)
+  
+}) 
+
+
+```
+
+:::panel-tabset
+
+### OISSTv2 1990's
+
+```{r}
+oisst_19 <- ggplot() +
+  geom_spatraster(data = sst_decades$avg_1990) +
+  geom_spatraster_contour_text(
+    data = sst_decades$avg_1990, 
+    breaks = seq(5, 30, 5),
+    color = "white") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(5,27)) +
+  map_theme(plot.margin = margin(1,1,1,1)) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = T, crs = 4326) +
+  labs(title = "Decadal Mean Surface Temperature\n1990's",
+       fill = "Sea Surface Temperature")
+
+oisst_19
 ```
 
 
-##  Decadal Temperature Shifts 
+### OISSTv2 2000's
+
+
+```{r}
+oisst_20 <- ggplot() +
+  geom_spatraster(data = sst_decades$avg_2000) +
+    geom_spatraster_contour_text(
+    data = sst_decades$avg_2000, 
+    breaks = seq(5, 30, 5),
+    color = "white") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(5,27)) +
+  map_theme(plot.margin = margin(1,1,1,1)) +
+ 
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = T, crs = 4326) +
+  labs(title = "\n2000's",
+       fill = "Sea Surface Temperature")
+
+oisst_20
+```
+
+### OISSTv2 2010's
+
+
+```{r}
+oisst_21 <- ggplot() +
+  geom_spatraster(data = sst_decades$avg_2010) +
+  geom_spatraster_contour_text(
+    data = sst_decades$avg_2010, 
+    breaks = seq(5, 30, 5),
+    color = "white") +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(limits = c(5,27)) +
+  theme(panel.grid.major = element_line(color = "gray90")) +
+  map_theme(plot.margin = margin(1,1,1,1)) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = T, crs = 4326) +
+  labs(title = "\n2010's",
+       fill = "Sea Surface Temperature")
+
+oisst_21
+```
+
+
+### Three Decades
+
+```{r}
+
+
+three_decades <- (oisst_19 | oisst_20 | oisst_21) + plot_layout(guides = "collect") & guides(fill = guide_colorbar(barwidth = unit(6, "cm"))) 
+
+three_decades
+
+
+# # Save it
+# # Prevents tiny fonts when saving
+# showtext::showtext_opts(dpi=300) 
+# 
+# ggsave(
+#   plot = three_decades, 
+#   filename = here::here("local_data/images/OISSTv2_Decadal_Average_Maps_GMRI.png"),
+#   height = unit(5, "in"),
+#     width = unit(6, "in"),
+#     dpi = "retina", 
+#     bg = "white", 
+#     scale = 1.75
+# )
+```
+
+
+:::
+
+
+
+
+## GLORYS Decadal Temperature Shifts 
 
 Changes in the decadal averages of surface and bottom temperatures for the region show a stark increase in temperature region wide in the 2010's.
 
@@ -270,9 +461,14 @@ Anomaly values below are the departure from the 1993-2022 long-term average for 
 # Surface Temperature
 sst_90 <- ggplot() +
   geom_spatraster(data = temp_decades$avg_1990$sst) +
+  geom_spatraster_contour(
+    data = temp_decades$avg_1990$sst, 
+    breaks = seq(5,30,5),
+    color = "lightgray") +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
-  scale_fill_viridis_c(limits = c(8,27)) +
+  scale_fill_viridis_c(limits = c(5,27)) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -288,6 +484,7 @@ bt_90 <- ggplot() +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -303,6 +500,7 @@ sst_anom_90 <- ggplot() +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -317,6 +515,7 @@ bt_anom_90 <- ggplot() +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -341,7 +540,8 @@ sst_20s <- ggplot() +
   geom_spatraster(data = temp_decades$avg_2000$sst) +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
-  scale_fill_viridis_c(limits = c(8,27)) +
+  scale_fill_viridis_c(limits = c(5,27)) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -357,6 +557,7 @@ bt_20s <- ggplot() +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -372,6 +573,7 @@ sst_anom_20s <- ggplot() +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -386,6 +588,7 @@ bt_anom_20s <- ggplot() +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -409,7 +612,8 @@ sst_21s <- ggplot() +
   geom_spatraster(data = temp_decades$avg_2010$sst) +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
-  scale_fill_viridis_c(limits = c(8,27)) +
+  scale_fill_viridis_c(limits = c(5,27)) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -425,6 +629,7 @@ bt_21s <- ggplot() +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_viridis_c(limits = c(0,16), na.value = "gray60", option = "magma") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -440,6 +645,7 @@ sst_anom_21s <- ggplot() +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), oob = oob_squish) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -454,6 +660,7 @@ bt_anom_21s <- ggplot() +
   geom_sf(data = new_england) +
   geom_sf(data = canada) +
   scale_fill_distiller(palette = "RdBu", limits = c(-1.5,1.5), na.value = "gray60") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   theme(panel.grid.major = element_line(color = "gray90")) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -510,7 +717,6 @@ plot(
 
 
 ```
-
 
 
  
@@ -588,14 +794,11 @@ sst_suit <- ggplot() +
   scale_fill_viridis_c(
     breaks = seq(0,1, .2),
     na.value = "gray60") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   coord_sf(
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
   labs(
     title = "1990's",
     subtitle = "Surface Temperature Suitability",
@@ -614,14 +817,11 @@ bt_suit <- ggplot() +
     breaks = seq(0,1, .2),
     na.value = "gray60",
     option = "magma") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   coord_sf(
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
   labs(
     title = "1990's",
     subtitle = "Bottom Temperature Suitability",
@@ -652,10 +852,7 @@ sst_suit <- ggplot() +
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "2000's",
     subtitle = "Surface Temperature Suitability",
@@ -678,10 +875,7 @@ bt_suit <- ggplot() +
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "2000's",
     subtitle = "Bottom Temperature Suitability",
@@ -713,10 +907,7 @@ sst_suit <- ggplot() +
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "2010's",
     subtitle = "Surface Temperature Suitability",
@@ -739,10 +930,7 @@ bt_suit <- ggplot() +
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "2010's",
     subtitle = "Bottom Temperature Suitability",
@@ -807,10 +995,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Lobster Temperature Suitability\nMay 2023",
     subtitle = "Lobster Suitability Range of 10-20C",
@@ -831,10 +1016,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nMay 2024",
     subtitle = "",
@@ -863,10 +1045,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Lobster Temperature Suitability\nJune 2023",
     subtitle = "Lobster Suitability Range of 10-20C",
@@ -887,10 +1066,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nJune 2024",
     subtitle = "",
@@ -917,10 +1093,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Lobster Temperature Suitability\nJuly 2023",
     subtitle = "Lobster Suitability Range of 10-20C",
@@ -941,10 +1114,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nJuly 2024",
     subtitle = "",
@@ -973,10 +1143,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Lobster Temperature Suitability\nAugust 2023",
     subtitle = "Lobster Suitability Range of 10-20C",
@@ -997,10 +1164,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nAugust 2024",
     subtitle = "",
@@ -1103,10 +1267,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Lobster Activity\nMay 2023",
     subtitle = "Lobster Activity Beginning at Temps Above 10C",
@@ -1125,10 +1286,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nMay 2024",
     subtitle = "",
@@ -1159,10 +1317,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Lobster Activity\nJune 2023",
     subtitle = "Lobster Activity Beginning at Temps Above 10C",
@@ -1181,10 +1336,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nJune 2024",
     subtitle = "",
@@ -1210,10 +1362,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Lobster Activity\nJuly 2023",
     subtitle = "Lobster Activity Beginning at Temps Above 10C",
@@ -1232,10 +1381,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nJuly 2024",
     subtitle = "",
@@ -1263,10 +1409,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Lobster Activity\nAugust 2023",
     subtitle = "Lobster Activity Beginning at Temps Above 10C",
@@ -1285,10 +1428,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nAugust 2024",
     subtitle = "",
@@ -1373,10 +1513,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Thermal Stress Areas\n",
     subtitle = "Thermal Stress Beginning at Temps Above 20C",
@@ -1395,10 +1532,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nMay 2024",
     subtitle = "",
@@ -1428,10 +1562,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+ guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
  labs(
     title = "Thermal Stress Areas\nJune 2023",
     subtitle = "Thermal Stress Beginning at Temps Above 20C",
@@ -1450,10 +1581,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nJune 2024",
     subtitle = "",
@@ -1478,10 +1606,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Thermal Stress Areas\nJuly 2023",
     subtitle = "Thermal Stress Beginning at Temps Above 20C",
@@ -1500,10 +1625,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nJuly 2024",
     subtitle = "",
@@ -1530,10 +1652,7 @@ map_23 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "Thermal Stress Areas\nAugust 2023",
     subtitle = "Thermal Stress Beginning at Temps Above 20C",
@@ -1552,10 +1671,7 @@ map_24 <- ggplot() +
     xlim = c(-75, -65), 
     ylim = c(39.5, 45.2), 
     expand = F, crs = st_crs(4269)) +
-  guides(fill = guide_colorbar(
-    title.position = "top",
-    title.hjust = 0.5,
-    barwidth = unit(4, "cm"))) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   labs(
     title = "\nAugust 2024",
     subtitle = "",
