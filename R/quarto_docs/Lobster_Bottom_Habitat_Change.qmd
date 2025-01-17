@@ -871,8 +871,7 @@ plot(
 ## Decadal Preference Maps 
 
 Lobster have a thermal preference (lab venture) of 11-22C. The following maps display what the decadal average temperatures look like with respect to the preference curve above.
- 
-::: panel-tabset
+
 
 
 ```{r}
@@ -924,6 +923,9 @@ lob_prefs <- map(temp_decades, function(decade_x){
 
 
 ```
+ 
+::: panel-tabset
+
 
 ### Lobster 1990's
 
@@ -963,8 +965,7 @@ bt_suit <- ggplot() +
   geom_sf(data = canada) +
   scale_fill_viridis_c(
     breaks = seq(0,1, .2),
-    na.value = "gray60",
-    option = "magma") +
+    na.value = "gray60") +
   guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
   coord_sf(
     xlim = c(-75.8, -65), 
@@ -976,7 +977,7 @@ bt_suit <- ggplot() +
     fill = "Temperature Suitability")
 
 
-sst_suit | bt_suit
+(sst_suit | bt_suit)  + plot_layout(guides = "collect")
 ```
 
 ### Lobster 2000's
@@ -1017,8 +1018,7 @@ bt_suit <- ggplot() +
   geom_sf(data = canada) +
   scale_fill_viridis_c(
     breaks = seq(0,1, .2),
-    na.value = "gray60",
-    option = "magma") +
+    na.value = "gray60") +
   coord_sf(
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
@@ -1030,7 +1030,7 @@ bt_suit <- ggplot() +
     fill = "Temperature Suitability")
 
 
-sst_suit | bt_suit
+(sst_suit | bt_suit)  + plot_layout(guides = "collect")
 ```
 
 
@@ -1072,8 +1072,7 @@ bt_suit <- ggplot() +
   geom_sf(data = canada) +
   scale_fill_viridis_c(
     breaks = seq(0,1, .2),
-    na.value = "gray60",
-    option = "magma") +
+    na.value = "gray60") +
   coord_sf(
     xlim = c(-75.8, -65), 
     ylim = c(36, 45.2), 
@@ -1085,7 +1084,7 @@ bt_suit <- ggplot() +
     fill = "Temperature Suitability")
 
 
-sst_suit | bt_suit
+(sst_suit | bt_suit) + plot_layout(guides = "collect")
 
 ```
 
