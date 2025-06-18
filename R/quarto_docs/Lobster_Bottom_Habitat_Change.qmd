@@ -67,6 +67,8 @@ gom_bounds <- read_sf(
    box_location = "cloudstorage")$apershing_gulf_of_maine$shape_path)
 
 
+
+
 # Make a box to use when cropping based on an xlim and ylim pair
 make_cropbox <- function(xlims, ylims){
   sfc <- st_sfc(st_polygon(list(
@@ -78,6 +80,8 @@ make_cropbox <- function(xlims, ylims){
   sfc <- st_as_sf(sfc)
   return(sfc)
 }
+
+
 
 # Temp palette:
 temp_pal <- rev(RColorBrewer::brewer.pal(n = 10, name = "RdBu"))
@@ -1830,3 +1834,250 @@ map_24 <- ggplot() +
 
 
 :::
+
+
+
+# Seaweed Saturday Prep
+
+Kelp/seaweed species play an important role in the region's ecology roles are sessile organisms that are unable to move
+
+
+Chat gpt says a very similar 5-15C, we could use a 18C Threshold.
+
+Depth is a critical thing for Kelp, they typically exist at depths less than 40m, and need rocky substrates.
+
+
+
+```{r}
+#| eval: true
+#| fig-height: 4
+
+# Get temperature range for study area as a vector
+temp_range <- seq(
+  min(values(temps_monthly["bottom_temp"]), na.rm = T),
+  max(values(temps_monthly["surface_temp"]), na.rm = T),
+  by = .1)
+
+
+# Use the betaFun(), feed it temperature vector min/max and curve shape
+kelp_beta <- betaFun(
+  x = temp_range,
+        p1 = 0, 
+        p2 = 20, 
+        alpha = 3, 
+        gamma = 1)
+
+
+# Show the temp  preference
+plot(
+  kelp_beta ~ temp_range, 
+  type = "l", 
+  main = "Hypothetical Kelp Temperature Preference Curve", 
+  ylab = "Preference", 
+  xlab = "Temperature Range")
+
+
+```
+
+
+
+```{r}
+
+
+# Apply the preferences
+kelp_prefs <- map(temp_decades, function(decade_x){
+  map(
+    setNames(c("sst", "bt"), 
+             c("sst", "bt")), 
+    function(x){
+      make_pref_ras(
+        in_ras = decade_x, 
+        ras_name =  x, 
+        p1 = 0, 
+        p2 = 20, 
+        alpha = 4, 
+        gamma = 1.2)
+    })
+  
+})
+
+```
+
+
+::: panel-tabset
+
+
+### Kelp 1990's
+
+```{r}
+#| eval: true
+
+
+bt_suit_1990s <- ggplot() +
+  geom_spatraster(
+    data = kelp_prefs$avg_1990$bt) +
+  geom_spatraster_contour(
+    data = kelp_prefs$avg_1990$bt, 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  labs(
+    title = "1990's",
+    fill = "Temperature Suitability")
+
+
+ bt_suit_1990s
+```
+
+### Kelp 2000's
+
+```{r}
+#| eval: true
+
+bt_suit_2000s <- ggplot() +
+  geom_spatraster(
+    data = kelp_prefs$avg_2000$bt) +
+  geom_spatraster_contour(
+    data = kelp_prefs$avg_2000$bt, 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  labs(
+    title = "2000's", fill = "Temperature Suitability")
+
+
+bt_suit_2000s
+```
+
+
+
+### Kelp 2010's
+
+```{r}
+#| eval: true
+
+
+bt_suit_2010s <- ggplot() +
+  geom_spatraster(
+    data = kelp_prefs$avg_2010$bt) +
+  geom_spatraster_contour(
+    data = kelp_prefs$avg_2010$bt, 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75.8, -65), 
+    ylim = c(36, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  labs(
+    title = "2010's",
+    fill = "Temperature Suitability")
+
+
+ bt_suit_2010s
+```
+
+:::
+
+
+```{r}
+(bt_suit_1990s | bt_suit_2000s | bt_suit_2010s) + plot_layout(guides = "collect") + plot_annotation(title = "Kelp Bottom Temperature Suitability")
+```
+
+
+
+```{r}
+
+
+# Apply the activity logistic function
+bot_suitability <- map(
+  .x = setNames(names(bt), names(bt)),
+  function(x){
+      pref_ras <- make_pref_ras(
+        in_ras = bt, 
+        ras_name =  x, 
+        p1 = 0, 
+        p2 = 20, 
+        alpha = 4, 
+        gamma = 0.7)
+      
+      # Mask depths below our downloaded depth limit
+      pref_ras[over_depths] <- NA
+      return(pref_ras)
+      
+      
+    })
+
+```
+
+
+
+### Summer Suitability
+
+```{r}
+
+map_09 <- ggplot() +
+  geom_spatraster(
+    data = bot_suitability[["2009-02-28"]]) +
+  geom_spatraster_contour(
+    data = bot_suitability[["2009-02-28"]], 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  labs(
+    title = "Winter Kelp Temperature Suitability\nFebruary 2009",
+    subtitle = "Kelp Suitability Range of 10-20C",
+    fill = "Temperature Suitability")
+
+map_10 <- ggplot() +
+  geom_spatraster(
+    data = bot_suitability[["2010-05-31"]]) +
+  geom_spatraster_contour(
+    data = bot_suitability[["2010-05-31"]], 
+    breaks = seq(0,1,.25), color = "white", linewidth = 0.15) +
+  geom_sf(data = new_england) +
+  geom_sf(data = canada) +
+  scale_fill_viridis_c(
+    breaks = seq(0,1, .2),
+    na.value = "gray60") +
+  coord_sf(
+    xlim = c(-75, -65), 
+    ylim = c(39.5, 45.2), 
+    expand = F, crs = st_crs(4269)) +
+  guides(fill = guide_colorbar(barwidth = unit(4, "cm"))) +
+  labs(
+    title = "\nMay 2010",
+    subtitle = "",
+    fill = "Temperature Suitability")
+
+map_09 | map_10
+```
+

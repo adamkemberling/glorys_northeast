@@ -1,0 +1,300 @@
+---
+title: "Econ Temperatures"
+author: "Adam Kemberling"
+date: "Updated on: `r Sys.Date()`"
+format: 
+  html:
+    toc: true
+    self-contained: true
+    code-fold: true
+execute:
+  echo: true
+  fig-width: 8
+  fig-height: 7
+  message: false
+  warning: false
+editor: source
+---
+
+
+
+```{r}
+# Libraries
+library(raster)
+library(tidyverse)
+library(gmRi)
+library(rnaturalearth)
+library(scales)
+library(sf)
+library(gt)
+library(patchwork)
+conflicted::conflict_prefer("select", "dplyr")
+conflicted::conflict_prefer("filter", "dplyr")
+
+# Degree symbol
+deg_c <- "\u00b0C"
+
+# Coastlines
+new_england <- ne_states("united states of america", returnclass = "sf")
+canada <- ne_states("canada", returnclass = "sf")
+```
+
+
+```{r}
+#| label: style-config
+#| results: asis
+
+# Use GMRI style
+use_gmri_style_rmd()
+
+```
+
+```{r}
+#| label: fonts-config
+#| echo: false
+
+library(showtext)
+
+# Path to the directory containing the font file (replace with your actual path)
+font_dir <- paste0(system.file("stylesheets", package = "gmRi"), "/GMRI_fonts/Avenir/")
+
+# Register the font
+font_add(
+  family = "Avenir",
+  file.path(font_dir, "LTe50342.ttf"),
+  bold = file.path(font_dir, "LTe50340.ttf"),
+  italic = file.path(font_dir, "LTe50343.ttf"),
+  bolditalic = file.path(font_dir, "LTe50347.ttf"))
+
+
+# Why is the gt package able to add it wtf!!
+# google_font(name = "Avenir")
+
+# Load the font
+showtext::showtext_auto()
+
+```
+
+
+# Contents:
+
+
+
+
+### Loading GLORYS
+
+GLORYS is just a pain for working with in R, I'm moving this to python.
+
+```{r}
+#| label: load daily glorys
+
+# # Load GLORYS
+# gpath = cs_path("res", "GLORYs/NE_Shelf_Surfbot_Daily")
+# 
+# # Load the monthly averages and the climatology
+# # Done in: py/Monthly_Surface_and_Bottom.ipynb
+# 
+# # Temperature and salinity for surface and bottom layers
+# file_yr <- 1993
+# surfbot_files <- list.files(gpath, full.names = T)
+# surfbot_names <- list.files(gpath) %>% str_remove_all("CMEMS_Northeast_TempSal_SurfaceBottom_|.nc")
+# surfbot_files <- setNames(surfbot_files, surfbot_names)
+# 
+# # Load each variable as a stack
+# false_bottom <- raster::stack(surfbot_files[[1]], varname = "bottom_depth") # For masking off-shelf areas >400m?
+# plot(false_bottom < 500)
+# surface_t <- map(surfbot_files, function(x){raster::stack(x, varname = "surface_temp")}) %>% stack()
+# bottom_t <- map(surfbot_files, function(x){raster::stack(x, varname = "bottom_temp")}) %>% stack()
+# # surface_s <- map(surfbot_files, function(x){raster::stack(x, varname = "surface_sal")}) %>% stack()
+# # bottom_s <- map(surfbot_files, fxunction(x){raster::stack(x, varname = "bottom_sal")}) %>% stack()
+# 
+# # Mask out the off-shelf areas
+# surface_t[false_bottom > 500] <- NA
+# bottom_t[false_bottom > 500] <- NA
+# 
+# # Plot one
+# plot(surface_t[[1]])
+```
+
+### Loading EPUS
+
+```{r}
+#| label: load epus
+
+# EPU path
+box_shapes <- cs_path("res", "Shapefiles")
+
+# EPUS
+epus <- read_sf(str_c(box_shapes, "epu/EPU_extended.shp"))
+st_crs(epus) <- st_crs(4326)
+ggplot(epus) + geom_sf(aes(fill = EPU))
+```
+
+### Loading Stat Areas
+
+Here is some recent information on the large-mesh stock management areas:
+>The 22 large-mesh stocks are:
+ Targeted Stocks: Eastern Gulf of Maine cod; Western Gulf of Maine cod; Georges Bank cod; Southern New England cod;  Gulf of Maine haddock; Georges Bank haddock; Georges Bank yellowtail flounder; Southern New England/Mid-Atlantic  yellowtail flounder; Cape Cod/Gulf of Maine yellowtail flounder; pollock; American plaice; witch flounder; white  hake; Georges Bank winter flounder; Gulf of Maine winter flounder; Southern New England/Mid-Atlantic winter  flounder; redfish; and Atlantic halibut.
+
+```{r}
+#| label: load stat areas
+# Management Boundaries
+stat_areas <- read_sf(str_c(box_shapes, "statistical_areas/statistical_areas_2010_withnames.shp"))
+#nmfs_shp   <- read_sf(paste0(box_shapes, "LobsterZones/NMFS/Lobster_Management_Areas.shp"))
+
+# dumb 2d stuff
+sf_use_s2(FALSE)
+
+# Change crs to simplify
+stat_areas <- stat_areas |>
+  st_transform(stat_areas, crs = 32619) |>
+  filter(Id %in% c(511:680)) |>
+  mutate(`Stock Area` = case_when(
+    Id %in% c(511:515) ~ "Gulf of Maine",
+    Id %in% c(521,522,525,526,541,542,543,561,562) ~ "Georges Bank",
+    Id %in% c(538,539,537,533,534,611,612,613,614,615,616,621,622,623,624,625,626,627,631,632,635) ~ "Southern New England")) |> 
+  filter(!is.na(`Stock Area`))
+
+simplified_stat_areas <- st_simplify(stat_areas, dTolerance = 1000)
+
+```
+
+### Constructing Stack Management Areas
+
+```{r}
+#| label:  make stock management areas
+
+# Haddock Management Areas
+gom_haddock <- c(511, 512, 513, 515, 514)
+gbk_haddock <- c(521, 522, 537, 538, 539, 525, 526, 561, 562)
+
+# Yellowtail Management Areas
+ytf_gom <- c(511, 512, 513, 514, 515, 521)
+ytf_gbk <- c(522, 525, 551, 552,561, 562)
+ytf_sne <- c(611:616, 526, 537:539)
+
+# Assign labels
+stock_areas <- simplified_stat_areas %>% 
+  mutate(
+    yt_areas = case_when(
+      Id %in% ytf_gom ~ "GOM_Yellowtail",
+      Id %in% ytf_gbk ~ "GBK_Yellowtail",
+      Id %in% ytf_sne ~ "SNE_Yellowtail",
+      TRUE ~ "drop"),
+    haddock_areas = case_when(
+      Id %in% gom_haddock ~ "GOM_Haddock",
+      Id %in% gbk_haddock ~ "GBK_Haddock",
+      TRUE ~ "drop"),
+  )
+
+# Subset by species
+flounder_areas <- stock_areas %>% filter(yt_areas != "drop")
+haddock_areas <- stock_areas %>% filter(haddock_areas != "drop")
+
+# Plot
+flound_p <- ggplot(flounder_areas) + geom_sf(aes(fill = yt_areas)) + labs(title = "Yellowtail Flounder Stock Management Areas")
+hadd_p <- ggplot(haddock_areas) + geom_sf(aes(fill = haddock_areas))  + labs(title = "Haddock Stock Management Areas")
+flound_p / hadd_p
+
+# Get them as single shapes for masking
+flounder_unions <- flounder_areas %>% 
+  split(.$yt_areas) %>% 
+  map(~.x %>% 
+        group_by(yt_areas)  %>% 
+        dplyr::summarise(across(geometry, ~ sf::st_union(.)), .groups = "keep") %>%
+        dplyr::summarise(across(geometry, ~ sf::st_combine(.))))
+haddock_unions <- haddock_areas %>% 
+  split(.$haddock_areas) %>% 
+  map(~.x %>% 
+        group_by(haddock_areas)  %>% 
+        dplyr::summarise(across(geometry, ~ sf::st_union(.)), .groups = "keep") %>%
+        dplyr::summarise(across(geometry, ~ sf::st_combine(.))))
+
+
+```
+
+
+# Processing Timeseries
+
+```{r}
+# Put all the different areas into one list to run them all at once
+areas_list <- list(
+  "epu_GOM" = epus %>% filter(EPU == "GOM"),
+  "epu_GB" = epus %>% filter(EPU == "GB"),
+  "epu_MAB" = epus %>% filter(EPU == "MAB"),
+  "epu_SS" = epus %>% filter(EPU == "SS"),
+  "yellowtail_SNE" = flounder_unions$SNE_Yellowtail,
+  "yellowtail_GB" = flounder_unions$GBK_Yellowtail,
+  "yellowtail_GOM" = flounder_unions$GOM_Yellowtail,
+  "haddock_GOM" = haddock_unions$GOM_Haddock,
+  "haddock_GB" = haddock_unions$GBK_Haddock
+)
+
+# Check their crs
+areas_wgs <- map(areas_list, ~st_transform(.x, st_crs(4326)))
+
+
+# Export them all
+iwalk(areas_wgs, ~write_sf(.x, here::here("local_data/ECON_shapefiles", str_c(.y, ".geojson"))))
+
+```
+
+
+```{r}
+#| label: processing functions
+
+# Masking Function to clip to the study area
+mask_nc <- function(ras_obj, mask_shape, rotate = TRUE){
+  
+  # First Mask using the polygon, rotate if needed
+  if(rotate == TRUE){
+    m1 <- mask(rotate(ras_obj), mask_shape)
+  } else {
+    m1 <- mask(ras_obj, mask_shape)
+  }
+  
+  # Then Crop
+  m1 <- crop(m1, mask_shape)
+  return(m1)
+}
+
+
+
+# Get the average warming rates for each area
+get_masked_temps <- function(masked_sst, masked_bt){
+  
+  # Get the average surface
+  m1 <- masked_sst
+  rank_mean <- cellStats(m1, mean)
+  
+  # Get stats from rates
+  m2 <- masked_bt
+  rate_mean <- cellStats(m2, mean)
+
+  
+  # Put in table
+  table_out <- tibble(
+    "surface_t" = rank_mean,
+    "bottom_t"  = rank_min)
+  
+  # spit them out
+  return(table_out)
+}
+
+
+# # Plot a bottom layer
+# plot(bottom_t[[1]])
+
+```
+
+
+```{r}
+# Crop to each area, process daily data, combine as timeseries
+names(bottom_t)
+test_crop <- mask_nc(ras_obj = bottom_t[[1]], mask_shape = areas_wgs$haddock_GB, rotate = T)
+plot(test_crop[[1]])
+
+
+
+```
+

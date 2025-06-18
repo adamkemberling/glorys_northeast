@@ -1,6 +1,8 @@
 # Downloading Glorys for Northeast US
 # Using Copernicus Marine Toolbox python API
 
+
+
 # For Constructing Last day of the month
 import datetime
 import calendar
@@ -10,7 +12,7 @@ import numpy as np
 
 
 # Access the catalog
-catalog = copernicusmarine.describe(overwrite_metadata_cache=True)
+catalog = copernicusmarine.describe()
 
 # # Log in using credentials: 
 # copernicusmarine.login()
@@ -59,9 +61,7 @@ for yr in years:
         minimum_depth = 0,
         maximum_depth = 1500,
         output_filename = f"CMEMS_Northeast_TempSal_{yr}_{mnth}.nc",
-        output_directory = out_directory, 
-        force_download = True
-        )
+        output_directory = out_directory)
 
 
 
@@ -74,7 +74,7 @@ for yr in years:
 
 # Now Download the remaining dates from the interim dataset
 # Load some years
-years = np.arange(2024, 2025)
+years = np.arange(2025, 2026)
 months = np.arange(1,13)
 months = [f"{mnth:02}" for mnth in months]
 
@@ -99,9 +99,7 @@ for yr in years:
         minimum_depth = 0,
         maximum_depth = 1500,
         output_filename = f"CMEMS_Northeast_TempSal_{yr}_{mnth}.nc",
-        output_directory = out_directory, 
-        force_download = True
-        )
+        output_directory = out_directory)
 
 
 
